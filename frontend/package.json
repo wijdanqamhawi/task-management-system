@@ -1,0 +1,20 @@
+{
+  "name": "task-management-frontend",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "React frontend for the Task Management System. React + Vite only: no router library, no UI library, no CSS framework, no HTTP client, no state-management library (Constitution II, research.md R-013).",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.4.8"
+  }
+}

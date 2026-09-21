@@ -1,0 +1,39 @@
+# --- Java / Maven (backend) ---
+target/
+*.class
+*.jar
+*.war
+!.mvn/wrapper/maven-wrapper.jar
+.mvn/timing.properties
+
+# --- Node / Vite (frontend build tooling only) ---
+node_modules/
+dist/
+.vite/
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Secrets & local configuration ---
+.env
+.env.*
+!.env.example
+application-local.yml
+
+# --- Attachments written at runtime (never committed) ---
+attachments/
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp

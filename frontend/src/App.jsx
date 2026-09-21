@@ -12,6 +12,8 @@ import { ROUTES } from './router/routes.js';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import Register from './pages/Register.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import { RouteGuard } from './router/RouteGuard.jsx';
 
 function Nav() {
   const { user, logout } = useSession();
@@ -43,7 +45,23 @@ const routes = [
   { path: ROUTES.LOGIN, element: () => <Login /> },
   { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
   { path: ROUTES.REGISTER, element: () => <Register /> },
+  // Behind the session guard; the Dashboard renders its own sidebar and top bar.
+  { path: ROUTES.DASHBOARD, element: () => <RouteGuard><Dashboard /></RouteGuard> },
 ];
+
+/*
+ * DEVELOPMENT-ONLY visual preview of the Dashboard, at /dev/dashboard.
+ *
+ * It renders the real <Dashboard /> component without a session so the layout can be
+ * reviewed before the backend login works. It creates no session, calls no auth endpoint
+ * and grants access to nothing: the Dashboard shows only sample data. `import.meta.env.DEV`
+ * is replaced by the literal `false` in `vite build`, so this route and its path string are
+ * removed from production bundles. The real /dashboard route above stays behind RouteGuard.
+ */
+const DEV_PREVIEW_PATH = import.meta.env.DEV ? '/dev/dashboard' : null;
+if (DEV_PREVIEW_PATH) {
+  routes.push({ path: DEV_PREVIEW_PATH, element: () => <Dashboard preview /> });
+}
 
 function Placeholder() {
   return (
@@ -67,7 +85,9 @@ function Shell() {
   const { pathname } = useRouter();
   const isAuthScreen = pathname === ROUTES.LOGIN
     || pathname === ROUTES.REGISTER
-    || pathname === ROUTES.FORGOT_PASSWORD;
+    || pathname === ROUTES.FORGOT_PASSWORD
+    || pathname === ROUTES.DASHBOARD   // has its own sidebar + top bar
+    || pathname === DEV_PREVIEW_PATH;
 
   return (
     <>

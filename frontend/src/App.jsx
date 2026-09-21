@@ -5,10 +5,13 @@
  * the router, the session, and the design system; US1 (T048-T051) mounts the first screens.
  */
 import './styles/layout.css';
-import { Router, Routes } from './router/Router.jsx';
+import { Router, Routes, useRouter } from './router/Router.jsx';
 import { Link } from './router/Link.jsx';
 import { SessionProvider, useSession } from './auth/SessionContext.jsx';
 import { ROUTES } from './router/routes.js';
+import Login from './pages/Login.jsx';
+import ForgotPassword from './pages/ForgotPassword.jsx';
+import Register from './pages/Register.jsx';
 
 function Nav() {
   const { user, logout } = useSession();
@@ -31,8 +34,16 @@ function Nav() {
   );
 }
 
-/* Routes are registered here as each user story lands. */
-const routes = [];
+/*
+ * Routes are registered here as each user story lands.
+ * Week 2 delivers the authentication screens; the remaining US1 screens (profile, user
+ * administration) follow in T049-T051.
+ */
+const routes = [
+  { path: ROUTES.LOGIN, element: () => <Login /> },
+  { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
+  { path: ROUTES.REGISTER, element: () => <Register /> },
+];
 
 function Placeholder() {
   return (
@@ -48,12 +59,29 @@ function Placeholder() {
   );
 }
 
+/**
+ * The authentication screens are full-viewport and must render without the navigation
+ * bar, which is only meaningful once a user is signed in.
+ */
+function Shell() {
+  const { pathname } = useRouter();
+  const isAuthScreen = pathname === ROUTES.LOGIN
+    || pathname === ROUTES.REGISTER
+    || pathname === ROUTES.FORGOT_PASSWORD;
+
+  return (
+    <>
+      {!isAuthScreen && <Nav />}
+      <Routes routes={routes} fallback={<Placeholder />} />
+    </>
+  );
+}
+
 export default function App() {
   return (
     <SessionProvider>
       <Router>
-        <Nav />
-        <Routes routes={routes} fallback={<Placeholder />} />
+        <Shell />
       </Router>
     </SessionProvider>
   );

@@ -7,6 +7,7 @@
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api/client.js';
+import { login as loginRequest } from '../api/auth.js';
 
 const SessionContext = createContext(null);
 
@@ -31,8 +32,8 @@ export function SessionProvider({ children }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const login = useCallback(async (username, password) => {
-    const me = await api.post('/auth/login', { username, password });
+  const login = useCallback(async (email, password) => {
+    const me = await loginRequest(email, password);
     setUser(me);
     return me;
   }, []);

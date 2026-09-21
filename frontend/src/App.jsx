@@ -12,6 +12,8 @@ import { ROUTES } from './router/routes.js';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import Register from './pages/Register.jsx';
+import Dashboard from './pages/Dashboard.jsx';
+import { RouteGuard } from './router/RouteGuard.jsx';
 
 function Nav() {
   const { user, logout } = useSession();
@@ -43,6 +45,8 @@ const routes = [
   { path: ROUTES.LOGIN, element: () => <Login /> },
   { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
   { path: ROUTES.REGISTER, element: () => <Register /> },
+  // Behind the session guard; the Dashboard renders its own sidebar and top bar.
+  { path: ROUTES.DASHBOARD, element: () => <RouteGuard><Dashboard /></RouteGuard> },
 ];
 
 function Placeholder() {
@@ -67,7 +71,8 @@ function Shell() {
   const { pathname } = useRouter();
   const isAuthScreen = pathname === ROUTES.LOGIN
     || pathname === ROUTES.REGISTER
-    || pathname === ROUTES.FORGOT_PASSWORD;
+    || pathname === ROUTES.FORGOT_PASSWORD
+    || pathname === ROUTES.DASHBOARD;   // has its own sidebar + top bar
 
   return (
     <>

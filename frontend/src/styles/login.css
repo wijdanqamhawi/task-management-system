@@ -1,0 +1,525 @@
+/*
+ * Login page — split-screen authentication layout.
+ *
+ * No framework, no icon library, no new dependency (Constitution II). Icons are inline
+ * SVG in Login.jsx. Responsive at the three project breakpoints: 360 / 768 / 1280.
+ *
+ * ---------------------------------------------------------------------------
+ * PAGE-SCOPED COLOUR VARIABLES
+ *
+ * The project accent (--c-accent: #2f5d8c) is a muted steel blue. The reference design
+ * uses a brighter blue and a darker navy, so the values below are defined HERE, scoped
+ * to .login, rather than changing the global tokens. Nothing outside this page is
+ * affected. To fall back to the project palette, point --login-blue at var(--c-accent)
+ * and --login-navy at var(--c-text).
+ * ---------------------------------------------------------------------------
+ */
+@import "./tokens.css";
+
+.login {
+  --login-blue:        #2563eb;
+  --login-blue-hover:  #1d4ed8;
+  --login-blue-soft:   #dbeafe;
+  --login-navy:        #16243a;
+  --login-navy-deep:   #0e1828;
+  --login-heading:     #111c2e;
+  --login-muted:       #667085;
+  --login-field-border:#dce0e7;
+  --login-page-bg:     #eef1f7;
+
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-5) var(--sp-4);
+  background: var(--login-page-bg);
+  /* Guards the "no horizontal scrolling" requirement (SC-010). */
+  overflow-x: hidden;
+}
+
+/* The single large container holding both panels. */
+.login__shell {
+  display: grid;
+  grid-template-columns: 1fr;
+  width: 100%;
+  max-width: 1120px;
+  min-height: 640px;
+  background: var(--c-surface);
+  border-radius: 14px;
+  box-shadow: 0 18px 48px rgba(17, 28, 46, 0.14), 0 2px 6px rgba(17, 28, 46, 0.06);
+  overflow: hidden;
+}
+
+/* ================================================================== *
+ * LEFT — visual panel
+ * ================================================================== */
+
+.login__visual {
+  position: relative;
+  display: none;                /* shown from 1024px up */
+  padding: var(--sp-6);
+  isolation: isolate;
+  background-color: var(--login-navy);
+
+  /*
+   * BACKGROUND PHOTOGRAPH.
+   *
+   * Applied from Login.jsx as an inline style when
+   *     frontend/src/assets/taskflow-workspace.jpg
+   * exists (picked up via import.meta.glob, a Vite built-in). No file today, so
+   * .login__visual--no-image applies and the panel falls back to navy.
+   */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+}
+
+/*
+ * Navy overlay, layered ABOVE the photograph and BELOW the content.
+ *
+ * Deliberately light at the top, where the plant, laptop and mugs sit, and heavier
+ * toward the bottom, where the headline and quote need contrast. The supplied
+ * photograph already carries a navy wash, so a heavy overlay on top of it would bury
+ * the desk — which is the thing the panel exists to show.
+ */
+.login__visual::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background:
+    linear-gradient(172deg,
+      rgba(18, 31, 50, 0.22) 0%,
+      rgba(15, 26, 43, 0.42) 42%,
+      rgba(11, 20, 34, 0.68) 76%,
+      rgba(8, 15, 26, 0.82) 100%);
+}
+
+/*
+ * No photograph present: deepen the overlay so the panel reads as a deliberate navy
+ * surface rather than a failed image load. Removed automatically once the asset exists.
+ */
+.login__visual--no-image::before {
+  background:
+    linear-gradient(160deg,
+      rgba(22, 36, 58, 0.97) 0%,
+      rgba(14, 24, 40, 0.99) 55%,
+      rgba(10, 18, 31, 1) 100%);
+}
+
+.login__visual-inner {
+  position: relative;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--sp-6);
+}
+
+/* --- brand --- */
+
+.login__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+}
+
+.login__logo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 auto;
+  border-radius: 9px;
+  background: var(--login-blue);
+  color: #fff;
+}
+
+.login__logo svg { width: 22px; height: 22px; display: block; }
+
+.login__brand-name {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+/* --- headline --- */
+
+.login__headline {
+  margin: 0;
+  text-shadow: 0 2px 12px rgba(6, 12, 22, 0.55);
+  font-size: clamp(2rem, 3.2vw, 2.75rem);
+  line-height: 1.12;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.login__headline-sub {
+  margin: var(--sp-4) 0 0;
+  text-shadow: 0 1px 8px rgba(6, 12, 22, 0.5);
+  max-width: 30ch;
+  font-size: var(--fs-md);
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.login__quote {
+  margin: 0;
+  text-shadow: 0 1px 8px rgba(6, 12, 22, 0.5);
+  font-size: var(--fs-base);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+/* ================================================================== *
+ * RIGHT — form panel
+ * ================================================================== */
+
+.login__panel {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--c-surface);
+  padding: var(--sp-6) var(--sp-4);
+}
+
+.login__form-wrap {
+  width: 100%;
+  max-width: 400px;
+}
+
+/* Brand repeated above the form on small screens, where the visual panel is hidden. */
+.login__panel-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-5);
+}
+
+.login__panel-brand .login__brand-name { color: var(--login-heading); }
+
+.login__heading {
+  margin: 0;
+  font-size: 2rem;
+  line-height: 1.15;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--login-heading);
+}
+
+.login__subtitle {
+  margin: var(--sp-2) 0 var(--sp-5);
+  font-size: var(--fs-md);
+  color: var(--login-muted);
+}
+
+.login__form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-4);
+}
+
+/* --- labels + fields --- */
+
+.login__form .field { gap: var(--sp-2); }
+
+.login__form .field > label {
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--login-heading);
+}
+
+/* Wrapper that positions the leading icon and the trailing control. */
+.login__control { position: relative; display: block; }
+
+.login__control-icon {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  transform: translateY(-50%);
+  display: flex;
+  color: var(--login-muted);
+  pointer-events: none;
+}
+
+.login__control-icon svg { width: 19px; height: 19px; display: block; }
+
+.login__form .input {
+  width: 100%;
+  min-height: 48px;
+  padding: 0 var(--sp-4) 0 44px;      /* room for the leading icon */
+  font-size: var(--fs-md);
+  color: var(--login-heading);
+  background: var(--c-surface);
+  border: 1px solid var(--login-field-border);
+  border-radius: 9px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.login__control--password .input { padding-right: 46px; }
+
+.login__form .input::placeholder { color: #98a2b3; }
+
+.login__form .input:hover:not(:disabled):not(:focus) { border-color: #c3c9d4; }
+
+.login__form .input:focus,
+.login__form .input:focus-visible {
+  outline: none;
+  border-color: var(--login-blue);
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+.login__form .input:disabled { background: #f7f8fa; color: var(--login-muted); }
+
+.login__form .field--error .input { border-color: var(--c-danger); }
+.login__form .field--error .input:focus { box-shadow: 0 0 0 3px var(--c-danger-soft); }
+.login__form .field__error { font-size: var(--fs-sm); color: var(--c-danger); }
+
+/* Show / hide password. */
+.login__reveal {
+  position: absolute;
+  top: 50%;
+  right: 6px;
+  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--login-muted);
+  cursor: pointer;
+}
+
+.login__reveal:hover { color: var(--login-heading); }
+
+.login__reveal:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+.login__reveal svg { width: 20px; height: 20px; display: block; }
+
+/* --- remember me / forgot password row --- */
+
+.login__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sp-3);
+  flex-wrap: wrap;
+}
+
+.login__remember {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-base);
+  color: var(--login-heading);
+  cursor: pointer;
+}
+
+.login__remember input {
+  width: 20px;
+  height: 20px;
+  margin: 0;
+  accent-color: var(--login-blue);   /* native styling, no extra markup */
+  cursor: pointer;
+}
+
+.login__forgot {
+  font-size: var(--fs-base);
+  font-weight: 500;
+  color: var(--login-blue);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 3px;
+}
+
+.login__forgot:hover {
+  color: var(--login-blue-hover);
+  text-decoration: underline;
+}
+
+.login__forgot:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+/* --- notice: an honest statement that a feature is unavailable --- */
+
+.login__notice {
+  padding: var(--sp-3) var(--sp-4);
+  background: var(--login-blue-soft);
+  border: 1px solid #bcd3fb;
+  border-radius: 9px;
+}
+
+.login__notice-title {
+  margin: 0 0 var(--sp-1);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--login-heading);
+}
+
+.login__notice-body {
+  margin: 0;
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: #35507e;
+}
+
+/* --- back to sign in --- */
+
+.login__back {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  font-size: var(--fs-base);
+  font-weight: 600;
+  color: var(--login-blue);
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 4px;
+}
+
+.login__back:hover { color: var(--login-blue-hover); text-decoration: underline; }
+
+.login__back:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+/* --- submit --- */
+
+.login__submit.btn {
+  width: 100%;
+  justify-content: center;
+  min-height: 50px;
+  margin-top: var(--sp-1);
+  font-size: var(--fs-md);
+  font-weight: 600;
+  color: #fff;
+  background: var(--login-blue);
+  border: 1px solid var(--login-blue);
+  border-radius: 9px;
+  transition: background-color 120ms ease, box-shadow 120ms ease;
+}
+
+.login__submit.btn:hover:not(:disabled) {
+  background: var(--login-blue-hover);
+  border-color: var(--login-blue-hover);
+}
+
+.login__submit.btn:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+.login__submit.btn:disabled { opacity: 0.6; }
+
+/* --- error --- */
+
+.login__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--sp-2);
+  margin: 0;
+  padding: var(--sp-3);
+  font-size: var(--fs-sm);
+  line-height: var(--lh-base);
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+  border: 1px solid var(--c-danger);
+  border-radius: 9px;
+}
+
+.login__error-mark { flex: 0 0 auto; font-weight: 700; }
+
+/* --- sign-up --- */
+
+.login__signup {
+  margin: var(--sp-5) 0 0;
+  text-align: center;
+  font-size: var(--fs-base);
+  color: var(--login-muted);
+}
+
+.login__link {
+  color: var(--login-blue);
+  font-weight: 600;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  padding: 2px 3px;
+}
+
+.login__link:hover { color: var(--login-blue-hover); text-decoration: underline; }
+
+.login__link:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--login-blue-soft);
+}
+
+/* ================================================================== *
+ * RESPONSIVE
+ * ================================================================== */
+
+/* ---------- Mobile: up to 767px ---------- */
+/* Visual panel hidden; the form takes nearly the full width with safe margins. */
+@media (max-width: 767px) {
+  .login { padding: var(--sp-4) var(--sp-3); align-items: flex-start; }
+
+  .login__shell {
+    min-height: 0;
+    border-radius: 12px;
+    box-shadow: 0 6px 20px rgba(17, 28, 46, 0.10);
+  }
+
+  .login__panel { padding: var(--sp-5) var(--sp-4); }
+  .login__heading { font-size: 1.625rem; }
+
+  .login__meta {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sp-3);
+  }
+  .login__subtitle { font-size: var(--fs-base); margin-bottom: var(--sp-4); }
+}
+
+/* ---------- Tablet: 768px and up ---------- */
+@media (min-width: 768px) {
+  .login { padding: var(--sp-6) var(--sp-5); }
+  .login__panel { padding: var(--sp-6) var(--sp-5); }
+  .login__form-wrap { max-width: 420px; }
+}
+
+/* ---------- Split layout: 1024px and up ---------- */
+@media (min-width: 1024px) {
+  .login__shell { grid-template-columns: 1fr 1fr; }
+  .login__visual { display: block; }
+  .login__panel-brand { display: none; }   /* brand lives in the visual panel */
+  .login__panel { padding: var(--sp-7) var(--sp-6); }
+}
+
+/* ---------- Desktop: 1280px and up ---------- */
+@media (min-width: 1280px) {
+  .login__shell { min-height: 680px; }
+  .login__visual { padding: var(--sp-7); }
+  .login__form-wrap { max-width: 400px; }
+}
+
+/* Short viewports: do not vertically centre, or the form becomes unreachable. */
+@media (max-height: 700px) {
+  .login { align-items: flex-start; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .login__form .input,
+  .login__submit.btn { transition: none; }
+}

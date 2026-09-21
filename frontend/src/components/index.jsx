@@ -1,8 +1,11 @@
 // T030 — Shared presentational components. Plain React, no UI library (Constitution II).
 import '../styles/components.css';
 
-export function Button({ variant, children, ...rest }) {
-  const cls = ['btn', variant ? `btn--${variant}` : ''].filter(Boolean).join(' ');
+export function Button({ variant, className, children, ...rest }) {
+  // className is merged, not spread through: spreading it in ...rest would overwrite the
+  // computed 'btn btn--variant' classes and strip the button of its styling.
+  const cls = ['btn', variant ? `btn--${variant}` : '', className]
+    .filter(Boolean).join(' ');
   return <button className={cls} {...rest}>{children}</button>;
 }
 

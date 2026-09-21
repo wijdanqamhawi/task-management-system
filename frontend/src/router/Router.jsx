@@ -40,10 +40,14 @@ export function Router({ children }) {
   }, []);
 
   const navigate = useCallback((to, { replace = false } = {}) => {
-    if (to === window.location.pathname) return;
+    // `to` may carry a query string or hash (RouteGuard sends '/login?next=%2Fdashboard').
+    // The URL keeps them, but `pathname` state must be the path alone, or matchPath()
+    // never matches and the fallback screen renders instead of the target route.
+    const path = to.split(/[?#]/)[0];
+    if (to === window.location.pathname + window.location.search + window.location.hash) return;
     if (replace) window.history.replaceState({}, '', to);
     else window.history.pushState({}, '', to);
-    setPathname(to);
+    setPathname(path);
     window.scrollTo(0, 0);   // otherwise scroll position leaks between screens
   }, []);
 

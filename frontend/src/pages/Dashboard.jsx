@@ -110,11 +110,16 @@ function Sidebar({ open, onClose }) {
   );
 }
 
-export default function Dashboard() {
+/** `preview` is passed only by the development-only /dev/dashboard route (App.jsx). */
+export default function Dashboard({ preview: previewProp = false }) {
   const { user, logout } = useSession();
   const [menuOpen, setMenuOpen] = useState(false);
+  // Also gated on DEV so the preview branch is compiled out of production builds.
+  const preview = import.meta.env.DEV && previewProp;
 
-  const displayName = user?.fullName ?? user?.username ?? user?.email ?? 'Account';
+  const displayName = preview
+    ? 'Preview (not signed in)'
+    : user?.fullName ?? user?.username ?? user?.email ?? 'Account';
 
   const totalTasks = STATUS_ORDER.reduce((sum, s) => sum + SAMPLE_STATUS_COUNTS[s], 0);
   const completed = SAMPLE_STATUS_COUNTS.COMPLETED;
@@ -165,7 +170,9 @@ export default function Dashboard() {
           <div className="dash__profile">
             <span className="dash__avatar" aria-hidden="true">{initials(displayName)}</span>
             <span className="dash__profile-name">{displayName}</span>
-            <Button type="button" className="dash__signout" onClick={logout}>Sign out</Button>
+            <Button type="button" className="dash__signout" onClick={logout} disabled={preview}>
+              Sign out
+            </Button>
           </div>
         </header>
 

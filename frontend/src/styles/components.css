@@ -1,0 +1,87 @@
+/* T030 — Shared presentational components. Hand-written CSS3, no UI library. */
+@import "./tokens.css";
+
+.btn {
+  display: inline-flex; align-items: center; gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-4);
+  font: inherit; font-size: var(--fs-base);
+  border: 1px solid var(--c-border); border-radius: var(--radius-sm);
+  background: var(--c-surface); color: var(--c-text);
+  cursor: pointer; min-height: 40px;
+}
+.btn:hover:not(:disabled) { background: var(--c-accent-soft); }
+.btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.btn--primary { background: var(--c-accent); border-color: var(--c-accent); color: #fff; }
+.btn--primary:hover:not(:disabled) { background: var(--c-accent-hover); }
+.btn--danger  { background: var(--c-danger); border-color: var(--c-danger); color: #fff; }
+
+.field { display: flex; flex-direction: column; gap: var(--sp-1); }
+.field > label { font-size: var(--fs-sm); color: var(--c-text-muted); }
+.input, .select, .textarea {
+  width: 100%; padding: var(--sp-2) var(--sp-3);
+  font: inherit; font-size: var(--fs-base);
+  border: 1px solid var(--c-border); border-radius: var(--radius-sm);
+  background: var(--c-surface); color: var(--c-text); min-height: 40px;
+}
+.textarea { min-height: 96px; resize: vertical; }
+.field--error .input, .field--error .select { border-color: var(--c-danger); }
+.field__error { font-size: var(--fs-sm); color: var(--c-danger); }
+
+:where(.btn, .input, .select, .textarea, a):focus-visible {
+  outline: 2px solid var(--c-accent); outline-offset: 2px;
+}
+
+.table { width: 100%; border-collapse: collapse; font-size: var(--fs-base); }
+.table th, .table td {
+  text-align: left; padding: var(--sp-3);
+  border-bottom: 1px solid var(--c-border); vertical-align: top;
+}
+.table th { font-size: var(--fs-sm); color: var(--c-text-muted); font-weight: 600; }
+.table tbody tr:hover { background: var(--c-accent-soft); }
+
+.badge {
+  display: inline-block; padding: 2px var(--sp-2);
+  font-size: var(--fs-sm); border-radius: 999px;
+  background: var(--c-accent-soft); color: var(--c-text);
+  white-space: nowrap;
+}
+/* Exactly four status badges exist — FR-027, Constitution VI. */
+.badge--TO_DO       { background: var(--c-accent-soft);  color: var(--c-status-todo); }
+.badge--IN_PROGRESS { background: var(--c-accent-soft);  color: var(--c-status-in-progress); }
+.badge--REVIEW      { background: var(--c-warning-soft); color: var(--c-status-review); }
+.badge--COMPLETED   { background: var(--c-success-soft); color: var(--c-status-completed); }
+.badge--LOW    { color: var(--c-priority-low); }
+.badge--MEDIUM { background: var(--c-warning-soft); color: var(--c-priority-medium); }
+.badge--HIGH   { background: var(--c-danger-soft);  color: var(--c-priority-high); }
+/* "Shared with me" must be visually distinguishable from "assigned to me" (FR-035a). */
+.badge--shared { background: transparent; border: 1px dashed var(--c-border); color: var(--c-text-muted); }
+
+.empty-state {
+  padding: var(--sp-6) var(--sp-4); text-align: center; color: var(--c-text-muted);
+}
+
+.modal__backdrop {
+  position: fixed; inset: 0; background: rgba(28, 36, 48, 0.45);
+  display: flex; align-items: center; justify-content: center; padding: var(--sp-4);
+}
+.modal {
+  background: var(--c-surface); border-radius: var(--radius-md);
+  box-shadow: var(--shadow-md); padding: var(--sp-5);
+  width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
+}
+
+.nav {
+  background: var(--c-surface); border-bottom: 1px solid var(--c-border);
+  min-height: var(--nav-height);
+}
+.nav__inner {
+  max-width: var(--content-max); margin: 0 auto;
+  padding: var(--sp-2) var(--sp-4);
+  display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center;
+}
+.nav__link { padding: var(--sp-2); color: var(--c-text-muted); text-decoration: none; border-radius: var(--radius-sm); }
+.nav__link:hover, .nav__link--active { color: var(--c-accent); background: var(--c-accent-soft); }
+.nav__badge {
+  min-width: 20px; padding: 0 6px; border-radius: 999px;
+  background: var(--c-danger); color: #fff; font-size: var(--fs-sm); text-align: center;
+}

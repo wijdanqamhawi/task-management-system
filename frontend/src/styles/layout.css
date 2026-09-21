@@ -1,0 +1,93 @@
+/*
+ * T029 — Responsive layout. Three breakpoints: 360px, 768px, 1280px (SC-010, Constitution VIII).
+ *
+ * The guarantee this file is responsible for: no horizontal page scrolling and no clipped
+ * content at any width from small mobile to desktop. Verified by quickstart scenario V9.
+ */
+@import "./tokens.css";
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  background: var(--c-bg);
+  color: var(--c-text);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  line-height: var(--lh-base);
+  /* The no-horizontal-scroll guarantee of SC-010. */
+  overflow-x: hidden;
+}
+
+/* Page container: full-bleed with a gutter on mobile, centred and capped on desktop. */
+.container {
+  width: 100%;
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--sp-4) var(--sp-4) var(--sp-7);
+}
+
+.page-header {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--sp-5);
+}
+
+.page-title { font-size: var(--fs-xl); line-height: var(--lh-tight); margin: 0; }
+
+/* Card surface used by every panel. */
+.card {
+  background: var(--c-surface);
+  border: 1px solid var(--c-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+  padding: var(--sp-4);
+}
+
+/*
+ * Auto-fitting grid. Single column on mobile, filling out as width allows, with no
+ * breakpoint-specific column counts to keep in sync.
+ */
+.grid {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: 1fr;
+}
+
+/* Tables scroll inside their own container rather than widening the page (SC-010). */
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.stack   { display: flex; flex-direction: column; gap: var(--sp-3); }
+.row     { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.spacer  { flex: 1 1 auto; }
+
+/* Form controls stack on mobile and sit inline once there is room. */
+.filter-bar { display: grid; grid-template-columns: 1fr; gap: var(--sp-3); }
+
+/* ---------- Tablet: 768px and up ---------- */
+@media (min-width: 768px) {
+  .container    { padding: var(--sp-5) var(--sp-5) var(--sp-7); }
+  .grid         { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .filter-bar   { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+/* ---------- Desktop: 1280px and up ---------- */
+@media (min-width: 1280px) {
+  .container    { padding: var(--sp-6) var(--sp-6) var(--sp-7); }
+  .grid         { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .filter-bar   { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+/* Respect a reduced-motion preference. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}

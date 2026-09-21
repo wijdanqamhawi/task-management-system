@@ -59,7 +59,7 @@ depends on.
 - [X] T008 Configure the Oracle datasource from environment variables in `backend/src/main/resources/application.yml` — no credential committed (plan § Technical Context)
 - [X] T009 [P] Document required environment variables (`TMS_DB_URL`, `TMS_DB_USER`, `TMS_DB_PASSWORD`, `TMS_ATTACHMENT_DIR`) in `.env.example` and `docs/deployment.md`
 - [X] T010 [P] Configure the Vite dev proxy forwarding `/api` to `http://localhost:8080` with cookie pass-through in `frontend/vite.config.js` (R-002)
-- [ ] T011 Verify a clean checkout builds: `./mvnw package` in `backend/` and `npm install && npm run build` in `frontend/`
+- [X] T011 Verify a clean checkout builds: `./mvnw package` in `backend/` and `npm install && npm run build` in `frontend/`
 
 **Checkpoint**: Both projects build from a clean checkout; GitHub workflow is in place.
 
@@ -75,46 +75,46 @@ places Database Design and UI Design before Development.
 
 ### Database Design (lifecycle step 3)
 
-- [ ] T012 Write the ERD source in `database/erd/erd.mmd` from [data-model.md](./data-model.md), covering all 12 entities and both many-to-many join tables (Constitution IV, deliverable 11)
-- [ ] T013 [P] Export the ERD to `database/erd/erd.png` and write `docs/erd.md` describing every entity and relationship (deliverable 11)
-- [ ] T014 Write reference-table DDL in `database/ddl/01_reference.sql` — `ROLES` (ADMIN, MANAGER, MEMBER), `TASK_STATUS` with a check constraint permitting **only** TO_DO, IN_PROGRESS, REVIEW, COMPLETED, and `TASK_PRIORITY` (FR-008, FR-027, Constitution VI)
-- [ ] T015 Write `USERS` DDL in `database/ddl/02_users.sql` with unique `username`/`email`, `password_hash`, `role_id` FK, and `is_active CHAR(1) CHECK (is_active IN ('Y','N'))` (FR-001, FR-004, FR-006)
-- [ ] T016 Write `PROJECTS` and `PROJECT_MEMBERS` DDL in `database/ddl/03_projects.sql` with the composite PK on (project_id, user_id) and `CHECK (end_date >= start_date)` (FR-009–FR-015)
-- [ ] T017 Write `TASKS` and `TASK_ASSIGNEES` DDL in `database/ddl/04_tasks.sql` with the composite PK on (task_id, user_id), `CHECK (due_date >= start_date)`, and FKs to status and priority (FR-016–FR-022)
-- [ ] T018 [P] Write `SUBTASKS`, `COMMENTS`, `ATTACHMENTS` DDL in `database/ddl/05_task_detail.sql`, each with `ON DELETE CASCADE` from `TASKS` (FR-024–FR-026, SC-011)
-- [ ] T019 [P] Write `NOTIFICATIONS` DDL in `database/ddl/06_notifications.sql` with `trigger_type` constrained to the five official triggers and a unique constraint on (task_id, recipient_id, trigger_type) for DEADLINE and OVERDUE (FR-054–FR-061, R-007)
-- [ ] T020 Write index DDL in `database/ddl/07_indexes.sql` — the eight indexes listed in [data-model.md](./data-model.md) § Indexes, including the function-based `UPPER(title)` index (FR-046–FR-051, SC-006)
-- [ ] T021 Write `database/ddl/run_all.sql` executing 01–07 in dependency order
-- [ ] T022 Write `database/seed/reference_data.sql` inserting the three roles, four statuses in workflow order, and three priorities (FR-008, FR-027)
-- [ ] T023 [P] Write `database/seed/demo_data.sql` — 1 Admin, 2 Managers, 4 Members, 3 projects, ~40 tasks spanning every status, every priority, multiple assignees, and past due dates (fixture for SC-005, SC-012)
-- [ ] T024 Write the `PKG_DASHBOARD` package specification in `database/plsql/pkg_dashboard.pks` declaring one routine per dashboard figure, each taking the acting user id (FR-036–FR-045, R-006)
-- [ ] T025 [P] Write the `PKG_NOTIFICATION` package specification in `database/plsql/pkg_notification.pks` declaring the deadline and overdue generation routines (FR-056, FR-057, R-007)
-- [ ] T026 Write `database/plsql/run_all.sql` installing both packages
-- [ ] T027 Execute `run_all.sql`, `plsql/run_all.sql`, and `reference_data.sql` against a development schema and verify `SELECT status_code FROM task_status` returns exactly four rows (quickstart § First-time setup)
+- [X] T012 Write the ERD source in `database/erd/erd.mmd` from [data-model.md](./data-model.md), covering all 12 entities and both many-to-many join tables (Constitution IV, deliverable 11)
+- [X] T013 [P] Export the ERD to `database/erd/erd.png` and write `docs/erd.md` describing every entity and relationship (deliverable 11)
+- [X] T014 Write reference-table DDL in `database/ddl/01_reference.sql` — `ROLES` (ADMIN, MANAGER, MEMBER), `TASK_STATUS` with a check constraint permitting **only** TO_DO, IN_PROGRESS, REVIEW, COMPLETED, and `TASK_PRIORITY` (FR-008, FR-027, Constitution VI)
+- [X] T015 Write `USERS` DDL in `database/ddl/02_users.sql` with unique `username`/`email`, `password_hash`, `role_id` FK, and `is_active CHAR(1) CHECK (is_active IN ('Y','N'))` (FR-001, FR-004, FR-006)
+- [X] T016 Write `PROJECTS` and `PROJECT_MEMBERS` DDL in `database/ddl/03_projects.sql` with the composite PK on (project_id, user_id) and `CHECK (end_date >= start_date)` (FR-009–FR-015)
+- [X] T017 Write `TASKS` and `TASK_ASSIGNEES` DDL in `database/ddl/04_tasks.sql` with the composite PK on (task_id, user_id), `CHECK (due_date >= start_date)`, and FKs to status and priority (FR-016–FR-022)
+- [X] T018 [P] Write `SUBTASKS`, `COMMENTS`, `ATTACHMENTS` DDL in `database/ddl/05_task_detail.sql`, each with `ON DELETE CASCADE` from `TASKS` (FR-024–FR-026, SC-011)
+- [X] T019 [P] Write `NOTIFICATIONS` DDL in `database/ddl/06_notifications.sql` with `trigger_type` constrained to the five official triggers and a unique constraint on (task_id, recipient_id, trigger_type) for DEADLINE and OVERDUE (FR-054–FR-061, R-007)
+- [X] T020 Write index DDL in `database/ddl/07_indexes.sql` — the eight indexes listed in [data-model.md](./data-model.md) § Indexes, including the function-based `UPPER(title)` index (FR-046–FR-051, SC-006)
+- [X] T021 Write `database/ddl/run_all.sql` executing 01–07 in dependency order
+- [X] T022 Write `database/seed/reference_data.sql` inserting the three roles, four statuses in workflow order, and three priorities (FR-008, FR-027)
+- [X] T023 [P] Write `database/seed/demo_data.sql` — 1 Admin, 2 Managers, 4 Members, 3 projects, ~40 tasks spanning every status, every priority, multiple assignees, and past due dates (fixture for SC-005, SC-012)
+- [X] T024 Write the `PKG_DASHBOARD` package specification in `database/plsql/pkg_dashboard.pks` declaring one routine per dashboard figure, each taking the acting user id (FR-036–FR-045, R-006)
+- [X] T025 [P] Write the `PKG_NOTIFICATION` package specification in `database/plsql/pkg_notification.pks` declaring the deadline and overdue generation routines (FR-056, FR-057, R-007)
+- [X] T026 Write `database/plsql/run_all.sql` installing both packages
+- [X] T027 Execute `run_all.sql`, `plsql/run_all.sql`, and `reference_data.sql` against a development schema and verify `SELECT status_code FROM task_status` returns exactly four rows (quickstart § First-time setup)
 
 ### UI Design (lifecycle step 4)
 
-- [ ] T028 [P] Define design tokens — colour, spacing, typography scale — in `frontend/src/styles/tokens.css` (CSS3 only, no framework)
-- [ ] T029 [P] Define the responsive layout and the three breakpoints (360px, 768px, 1280px) in `frontend/src/styles/layout.css`, guaranteeing no horizontal page scroll (SC-010, Constitution VIII)
-- [ ] T030 [P] Build the shared presentational components — button, text input, select, date input, table, modal, badge, empty-state — in `frontend/src/components/` using hand-written CSS3 (Constitution VIII)
+- [X] T028 [P] Define design tokens — colour, spacing, typography scale — in `frontend/src/styles/tokens.css` (CSS3 only, no framework)
+- [X] T029 [P] Define the responsive layout and the three breakpoints (360px, 768px, 1280px) in `frontend/src/styles/layout.css`, guaranteeing no horizontal page scroll (SC-010, Constitution VIII)
+- [X] T030 [P] Build the shared presentational components — button, text input, select, date input, table, modal, badge, empty-state — in `frontend/src/components/` using hand-written CSS3 (Constitution VIII)
 
 ### Backend foundation
 
-- [ ] T031 Create `TaskManagementApplication.java` in `backend/src/main/java/com/computercenter/taskmanagement/` with `@EnableScheduling` (R-007)
-- [ ] T032 Configure the `JdbcTemplate` and `SimpleJdbcCall` beans in `backend/src/main/java/com/computercenter/taskmanagement/config/DataAccessConfig.java` — **no ORM, no entity annotations** (R-001)
-- [ ] T033 Configure Spring Security in `backend/src/main/java/com/computercenter/taskmanagement/config/SecurityConfig.java` — session-based auth, BCrypt `PasswordEncoder`, `HttpOnly`/`SameSite=Lax` cookie, `@EnableMethodSecurity`, all endpoints authenticated except register and login (FR-002, R-002, R-003, Constitution V)
-- [ ] T034 [P] Implement the global error handler in `backend/src/main/java/com/computercenter/taskmanagement/common/GlobalExceptionHandler.java` returning the exact error body in [contracts/rest-api.md](./contracts/rest-api.md) § Error body, including `fieldErrors` for 400
-- [ ] T035 [P] Implement the paged-response wrapper in `backend/src/main/java/com/computercenter/taskmanagement/common/PageResponse.java` matching the contract's paging shape
-- [ ] T036 [P] Implement the acting-user accessor in `backend/src/main/java/com/computercenter/taskmanagement/common/CurrentUser.java` resolving the authenticated user, role, and active state from the session (FR-005, FR-007)
-- [ ] T037 Implement the single shared visibility predicate in `backend/src/main/java/com/computercenter/taskmanagement/common/TaskVisibility.java` — a reusable SQL fragment returning tasks whose project the user belongs to, or all tasks for Admin (FR-035, FR-045, FR-053, R-004)
+- [X] T031 Create `TaskManagementApplication.java` in `backend/src/main/java/com/computercenter/taskmanagement/` with `@EnableScheduling` (R-007)
+- [X] T032 Configure the `JdbcTemplate` and `SimpleJdbcCall` beans in `backend/src/main/java/com/computercenter/taskmanagement/config/DataAccessConfig.java` — **no ORM, no entity annotations** (R-001)
+- [X] T033 Configure Spring Security in `backend/src/main/java/com/computercenter/taskmanagement/config/SecurityConfig.java` — session-based auth, BCrypt `PasswordEncoder`, `HttpOnly`/`SameSite=Lax` cookie, `@EnableMethodSecurity`, all endpoints authenticated except register and login (FR-002, R-002, R-003, Constitution V)
+- [X] T034 [P] Implement the global error handler in `backend/src/main/java/com/computercenter/taskmanagement/common/GlobalExceptionHandler.java` returning the exact error body in [contracts/rest-api.md](./contracts/rest-api.md) § Error body, including `fieldErrors` for 400
+- [X] T035 [P] Implement the paged-response wrapper in `backend/src/main/java/com/computercenter/taskmanagement/common/PageResponse.java` matching the contract's paging shape
+- [X] T036 [P] Implement the acting-user accessor in `backend/src/main/java/com/computercenter/taskmanagement/common/CurrentUser.java` resolving the authenticated user, role, and active state from the session (FR-005, FR-007)
+- [X] T037 Implement the single shared visibility predicate in `backend/src/main/java/com/computercenter/taskmanagement/common/TaskVisibility.java` — a reusable SQL fragment returning tasks whose project the user belongs to, or all tasks for Admin (FR-035, FR-045, FR-053, R-004)
 
 ### Frontend foundation
 
-- [ ] T038 Implement the History API router in `frontend/src/router/Router.jsx` — path patterns with parameters, `popstate` handling, initial-load resolution (R-013)
-- [ ] T039 [P] Implement `frontend/src/router/Link.jsx` calling `pushState` with `preventDefault`, and `frontend/src/router/RouteGuard.jsx` enforcing role-based access with redirect-back-after-login (R-013, FR-005)
-- [ ] T040 [P] Implement the REST client wrapper in `frontend/src/api/client.js` — `fetch` with `credentials: 'include'`, JSON handling, and error normalisation; **the only place `fetch` is called** (Constitution III)
-- [ ] T041 Implement the session context in `frontend/src/auth/SessionContext.jsx` loading `GET /api/auth/me` and exposing the current user and role to guards and screens (FR-003, FR-005)
-- [ ] T042 [P] Build the application shell and role-aware navigation in `frontend/src/App.jsx` and `frontend/src/components/Nav.jsx`, responsive at all three breakpoints (SC-010)
+- [X] T038 Implement the History API router in `frontend/src/router/Router.jsx` — path patterns with parameters, `popstate` handling, initial-load resolution (R-013)
+- [X] T039 [P] Implement `frontend/src/router/Link.jsx` calling `pushState` with `preventDefault`, and `frontend/src/router/RouteGuard.jsx` enforcing role-based access with redirect-back-after-login (R-013, FR-005)
+- [X] T040 [P] Implement the REST client wrapper in `frontend/src/api/client.js` — `fetch` with `credentials: 'include'`, JSON handling, and error normalisation; **the only place `fetch` is called** (Constitution III)
+- [X] T041 Implement the session context in `frontend/src/auth/SessionContext.jsx` loading `GET /api/auth/me` and exposing the current user and role to guards and screens (FR-003, FR-005)
+- [X] T042 [P] Build the application shell and role-aware navigation in `frontend/src/App.jsx` and `frontend/src/components/Nav.jsx`, responsive at all three breakpoints (SC-010)
 
 **Checkpoint**: Schema installed, ERD delivered, design system and router in place. User story
 implementation can now begin.

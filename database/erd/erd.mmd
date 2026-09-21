@@ -1,0 +1,114 @@
+erDiagram
+    ROLES        ||--o{ USERS            : "held by"
+    USERS        ||--o{ PROJECT_MEMBERS  : "member via"
+    PROJECTS     ||--o{ PROJECT_MEMBERS  : "has member via"
+    USERS        ||--o{ PROJECTS         : "created"
+    PROJECTS     ||--o{ TASKS            : contains
+    USERS        ||--o{ TASKS            : created
+    TASKS        ||--o{ TASK_ASSIGNEES   : "assigned via"
+    USERS        ||--o{ TASK_ASSIGNEES   : "assignee via"
+    TASK_STATUS  ||--o{ TASKS            : classifies
+    TASK_PRIORITY||--o{ TASKS            : classifies
+    TASKS        ||--o{ SUBTASKS         : "broken into"
+    TASKS        ||--o{ COMMENTS         : "discussed in"
+    USERS        ||--o{ COMMENTS         : wrote
+    TASKS        ||--o{ ATTACHMENTS      : "has file"
+    USERS        ||--o{ ATTACHMENTS      : uploaded
+    USERS        ||--o{ NOTIFICATIONS    : receives
+    TASKS        ||--o{ NOTIFICATIONS    : "refers to"
+
+    ROLES {
+        NUMBER   role_id      PK
+        VARCHAR2 role_name    UK "ADMIN | MANAGER | MEMBER"
+        VARCHAR2 description
+    }
+    USERS {
+        NUMBER    user_id       PK
+        VARCHAR2  username      UK
+        VARCHAR2  email         UK
+        VARCHAR2  password_hash
+        VARCHAR2  full_name
+        NUMBER    role_id       FK
+        CHAR      is_active     "Y | N"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+    PROJECTS {
+        NUMBER    project_id  PK
+        VARCHAR2  name
+        CLOB      description
+        VARCHAR2  status
+        DATE      start_date
+        DATE      end_date
+        NUMBER    created_by  FK
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+    PROJECT_MEMBERS {
+        NUMBER    project_id PK_FK
+        NUMBER    user_id    PK_FK
+        TIMESTAMP added_at
+    }
+    TASK_STATUS {
+        NUMBER   status_id   PK
+        VARCHAR2 status_code UK "TO_DO | IN_PROGRESS | REVIEW | COMPLETED"
+        NUMBER   sort_order
+    }
+    TASK_PRIORITY {
+        NUMBER   priority_id   PK
+        VARCHAR2 priority_code UK "LOW | MEDIUM | HIGH"
+        NUMBER   sort_order
+    }
+    TASKS {
+        NUMBER    task_id     PK
+        NUMBER    project_id  FK
+        VARCHAR2  title
+        CLOB      description
+        NUMBER    status_id   FK
+        NUMBER    priority_id FK
+        DATE      start_date
+        DATE      due_date
+        NUMBER    created_by  FK
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+    TASK_ASSIGNEES {
+        NUMBER    task_id  PK_FK
+        NUMBER    user_id  PK_FK
+        TIMESTAMP assigned_at
+        NUMBER    assigned_by FK
+    }
+    SUBTASKS {
+        NUMBER    subtask_id  PK
+        NUMBER    task_id     FK
+        VARCHAR2  title
+        CHAR      is_completed "Y | N"
+        NUMBER    sort_order
+        TIMESTAMP created_at
+    }
+    COMMENTS {
+        NUMBER    comment_id PK
+        NUMBER    task_id    FK
+        NUMBER    user_id    FK
+        CLOB      body
+        TIMESTAMP created_at
+    }
+    ATTACHMENTS {
+        NUMBER    attachment_id PK
+        NUMBER    task_id       FK
+        NUMBER    uploaded_by   FK
+        VARCHAR2  original_name
+        VARCHAR2  stored_name   UK
+        VARCHAR2  content_type
+        NUMBER    size_bytes
+        TIMESTAMP uploaded_at
+    }
+    NOTIFICATIONS {
+        NUMBER    notification_id PK
+        NUMBER    recipient_id    FK
+        NUMBER    task_id         FK
+        VARCHAR2  trigger_type    "ASSIGNMENT | UPDATE | DEADLINE | OVERDUE | COMMENT"
+        VARCHAR2  message
+        CHAR      is_read         "Y | N"
+        TIMESTAMP created_at
+    }

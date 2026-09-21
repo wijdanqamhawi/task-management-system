@@ -1,0 +1,71 @@
+/*
+ * T028 — Design tokens. Hand-written CSS3; no framework, no UI library (Constitution II).
+ * Every colour, space and size used anywhere in the app resolves to a token defined here,
+ * so the interface reads as one system and a change lands everywhere at once.
+ */
+:root {
+  /* Neutrals */
+  --c-bg:            #f6f7f9;
+  --c-surface:       #ffffff;
+  --c-border:        #dfe3e8;
+  --c-text:          #1c2430;
+  --c-text-muted:    #5b6673;
+
+  /* Accent — used for primary actions and focus */
+  --c-accent:        #2f5d8c;
+  --c-accent-hover:  #26496e;
+  --c-accent-soft:   #e8eff6;
+
+  /* Feedback */
+  --c-danger:        #b4322b;
+  --c-danger-soft:   #fbeceb;
+  --c-success:       #2e6b4f;
+  --c-success-soft:  #e9f3ee;
+  --c-warning:       #8a5a12;
+  --c-warning-soft:  #fdf3e2;
+
+  /* Task status — one colour per official status, and only four exist (FR-027) */
+  --c-status-todo:        #5b6673;
+  --c-status-in-progress: #2f5d8c;
+  --c-status-review:      #8a5a12;
+  --c-status-completed:   #2e6b4f;
+
+  /* Task priority (LOW / MEDIUM / HIGH) */
+  --c-priority-low:    #5b6673;
+  --c-priority-medium: #8a5a12;
+  --c-priority-high:   #b4322b;
+
+  /* Spacing scale */
+  --sp-1: 0.25rem;
+  --sp-2: 0.5rem;
+  --sp-3: 0.75rem;
+  --sp-4: 1rem;
+  --sp-5: 1.5rem;
+  --sp-6: 2rem;
+  --sp-7: 3rem;
+
+  /* Typography */
+  --font-sans: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+  --fs-sm:   0.8125rem;
+  --fs-base: 0.9375rem;
+  --fs-md:   1.0625rem;
+  --fs-lg:   1.25rem;
+  --fs-xl:   1.5rem;
+  --lh-tight: 1.25;
+  --lh-base:  1.55;
+
+  /* Shape */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --shadow-sm: 0 1px 2px rgba(28, 36, 48, 0.08);
+  --shadow-md: 0 4px 12px rgba(28, 36, 48, 0.12);
+
+  /* Layout */
+  --content-max: 1200px;
+  --nav-height:  56px;
+
+  /* Breakpoints, documented here and used in layout.css (SC-010) */
+  --bp-mobile:  360px;
+  --bp-tablet:  768px;
+  --bp-desktop: 1280px;
+}

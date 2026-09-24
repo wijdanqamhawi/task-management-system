@@ -450,3 +450,22 @@ button.dash__nav-item:disabled { cursor: not-allowed; opacity: 0.55; }
 @media (prefers-reduced-motion: reduce) {
   .dash__sidebar { transition: none; }
 }
+
+/* --- loading / error states for fetched data --- */
+
+.dash__state {
+  margin: 0;
+  padding: var(--sp-5) var(--sp-4);
+  text-align: center;
+  font-size: var(--fs-base);
+  color: var(--login-muted);
+  background: #f7f9fc;
+  border: 1px dashed #d6dde8;
+  border-radius: 9px;
+}
+
+.dash__state--error {
+  color: var(--c-danger);
+  background: var(--c-danger-soft);
+  border: 1px solid var(--c-danger);
+}

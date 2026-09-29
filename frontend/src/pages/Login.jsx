@@ -22,6 +22,20 @@ import { ROUTES } from '../router/routes.js';
  */
 const SIGN_IN_FAILED = 'Email or password is incorrect.';
 
+/** Same shape check as Register and Forgot password; the server remains the authority. */
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+function emailError(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Enter your email address.';
+  if (!EMAIL_PATTERN.test(trimmed)) return 'Enter a valid email address.';
+  return undefined;
+}
+
+function passwordError(value) {
+  return value ? undefined : 'Enter your password.';
+}
+
 const MailIcon = () => (
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
        strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -68,13 +82,31 @@ export default function Login() {
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
 
-  /** Client-side checks only guard against empty submits; the server validates for real. */
+  /** Client-side checks only guard against bad submits; the server validates for real. */
   function validate() {
     const errors = {};
-    if (!email.trim()) errors.email = 'Enter your email address.';
-    if (!password) errors.password = 'Enter your password.';
+    const emailMsg = emailError(email);
+    const passwordMsg = passwordError(password);
+    if (emailMsg) errors.email = emailMsg;
+    if (passwordMsg) errors.password = passwordMsg;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
+  }
+
+  /**
+   * Once a field is showing an error, re-check it as the user types so the message
+   * updates (empty → invalid format) or disappears as soon as the value is fixed.
+   * Fields without an error are left alone, so nothing turns red mid-typing.
+   */
+  function revalidate(name, check, value) {
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      const msg = check(value);
+      if (msg) next[name] = msg;
+      else delete next[name];
+      return next;
+    });
   }
 
   async function handleSubmit(event) {
@@ -119,7 +151,10 @@ export default function Login() {
               name="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                revalidate('email', emailError, e.target.value);
+              }}
               placeholder="Enter your email"
               autoComplete="username"
               autoCapitalize="none"
@@ -139,7 +174,10 @@ export default function Login() {
               name="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                setPassword(e.target.value);
+                revalidate('password', passwordError, e.target.value);
+              }}
               placeholder="Enter your password"
               autoComplete="current-password"
               disabled={submitting}

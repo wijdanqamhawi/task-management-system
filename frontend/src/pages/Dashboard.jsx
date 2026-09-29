@@ -10,9 +10,9 @@
  *
  * Icons are inline SVG: no icon library, no new dependency (Constitution II).
  */
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import '../styles/dashboard.css';
-import { Badge, Button, Table } from '../components/index.jsx';
+import { Badge, Button, Select, Table } from '../components/index.jsx';
 import { Brand } from '../components/AuthShell.jsx';
 import { useSession } from '../auth/SessionContext.jsx';
 import {
@@ -60,6 +60,17 @@ const NAV_ITEMS = [
 ];
 
 const STATUS_ORDER = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
+const PRIORITY_ORDER = ['HIGH', 'MEDIUM', 'LOW'];
+
+/* Recent-tasks toolbar: "All" plus the same status/priority values the table already uses. */
+const STATUS_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All' },
+  ...STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
+];
+const PRIORITY_FILTER_OPTIONS = [
+  { value: 'ALL', label: 'All' },
+  ...PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
+];
 
 function initials(name) {
   const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
@@ -116,6 +127,34 @@ export default function Dashboard({ preview: previewProp = false }) {
   const [menuOpen, setMenuOpen] = useState(false);
   // Also gated on DEV so the preview branch is compiled out of production builds.
   const preview = import.meta.env.DEV && previewProp;
+
+  // Recent-tasks search + filters. Derived from SAMPLE_RECENT_TASKS on every render rather
+  // than stored as its own list, so there is never a second, out-of-sync copy of the tasks.
+  const [taskSearch, setTaskSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('ALL');
+  const [priorityFilter, setPriorityFilter] = useState('ALL');
+
+  const handleTaskSearchChange = (e) => setTaskSearch(e.target.value);
+  const handleStatusFilterChange = (e) => setStatusFilter(e.target.value);
+  const handlePriorityFilterChange = (e) => setPriorityFilter(e.target.value);
+  const handleClearFilters = () => {
+    setTaskSearch('');
+    setStatusFilter('ALL');
+    setPriorityFilter('ALL');
+  };
+
+  const filteredTasks = useMemo(() => {
+    const term = taskSearch.trim().toLowerCase();
+    return SAMPLE_RECENT_TASKS.filter((task) => {
+      const { name, status, priority } = task;
+      const matchesSearch = term === '' || name.toLowerCase().includes(term);
+      const matchesStatus = statusFilter === 'ALL' || status === statusFilter;
+      const matchesPriority = priorityFilter === 'ALL' || priority === priorityFilter;
+      return matchesSearch && matchesStatus && matchesPriority;
+    });
+  }, [taskSearch, statusFilter, priorityFilter]);
+
+  const filtersActive = taskSearch.trim() !== '' || statusFilter !== 'ALL' || priorityFilter !== 'ALL';
 
   const displayName = preview
     ? 'Preview (not signed in)'
@@ -189,7 +228,46 @@ export default function Dashboard({ preview: previewProp = false }) {
           <section className="dash__grid">
             <div className="dash__panel dash__panel--wide">
               <h2 className="dash__panel-title">Recent Tasks</h2>
-              <Table columns={taskColumns} rows={SAMPLE_RECENT_TASKS} empty="No recent tasks" />
+
+              <div className="dash__task-filters">
+                <label className="dash__task-search">
+                  <span className="dash__search-icon"><SearchIcon /></span>
+                  <input
+                    type="search"
+                    value={taskSearch}
+                    onChange={handleTaskSearchChange}
+                    placeholder="Search tasks by title"
+                    aria-label="Search tasks by title"
+                  />
+                </label>
+
+                <Select
+                  className="dash__task-filter"
+                  aria-label="Filter by status"
+                  value={statusFilter}
+                  onChange={handleStatusFilterChange}
+                  options={STATUS_FILTER_OPTIONS}
+                />
+
+                <Select
+                  className="dash__task-filter"
+                  aria-label="Filter by priority"
+                  value={priorityFilter}
+                  onChange={handlePriorityFilterChange}
+                  options={PRIORITY_FILTER_OPTIONS}
+                />
+
+                <Button
+                  type="button"
+                  className="dash__clear-filters"
+                  onClick={handleClearFilters}
+                  disabled={!filtersActive}
+                >
+                  Clear filters
+                </Button>
+              </div>
+
+              <Table columns={taskColumns} rows={filteredTasks} empty="No tasks match the current filters." />
             </div>
 
             <div className="dash__panel">

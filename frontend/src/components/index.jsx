@@ -23,9 +23,11 @@ export function TextInput(props)  { return <input className="input" {...props} /
 export function DateInput(props)  { return <input type="date" className="input" {...props} />; }
 export function TextArea(props)   { return <textarea className="textarea" {...props} />; }
 
-export function Select({ options = [], ...rest }) {
+export function Select({ options = [], className, ...rest }) {
+  // className is merged, not spread through, for the same reason as <Button> above.
+  const cls = ['select', className].filter(Boolean).join(' ');
   return (
-    <select className="select" {...rest}>
+    <select className={cls} {...rest}>
       {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   );

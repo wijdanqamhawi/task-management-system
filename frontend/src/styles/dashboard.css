@@ -305,6 +305,64 @@ button.dash__nav-item:disabled { cursor: not-allowed; opacity: 0.55; }
 .dash__panel .table td { vertical-align: middle; }
 .dash__task-name { font-weight: 600; }
 
+/* --- recent-tasks search + filters --- */
+
+.dash__task-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--sp-3);
+  margin-bottom: var(--sp-4);
+}
+
+.dash__task-search {
+  position: relative;
+  display: block;
+  flex: 1 1 220px;
+  min-width: 0;
+}
+
+.dash__task-search .dash__search-icon { left: 12px; }
+.dash__task-search .dash__search-icon svg { width: 17px; height: 17px; }
+
+.dash__task-search input {
+  width: 100%;
+  min-height: 40px;
+  padding: 0 var(--sp-3) 0 38px;
+  font: inherit;
+  font-size: var(--fs-base);
+  color: var(--login-heading);
+  background: var(--c-surface);
+  border: 1px solid var(--login-field-border);
+  border-radius: 9px;
+}
+
+.dash__task-search input::placeholder { color: #98a2b3; }
+
+.dash__task-filter.select {
+  flex: 1 1 140px;
+  min-width: 120px;
+  min-height: 40px;
+  border-radius: 9px;
+  border-color: var(--login-field-border);
+}
+
+.dash__clear-filters.btn {
+  flex: 0 0 auto;
+  min-height: 40px;
+  white-space: nowrap;
+  color: var(--login-blue);
+  border: 1px solid var(--login-field-border);
+  border-radius: 9px;
+  font-weight: 600;
+}
+
+.dash__clear-filters.btn:hover:not(:disabled) { background: var(--login-blue-soft); }
+
+@media (max-width: 480px) {
+  .dash__task-filters { flex-direction: column; align-items: stretch; }
+  .dash__task-search, .dash__task-filter.select, .dash__clear-filters.btn { flex: 1 1 auto; width: 100%; }
+}
+
 /* --- task status breakdown --- */
 
 .dash__statuses { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-4); }

@@ -23,6 +23,32 @@ import { ROUTES } from '../router/routes.js';
 
 /** Pragmatic shape check. Real validation is a server's job; this catches typos. */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MIN_PASSWORD_LENGTH = 8;
+
+function nameError(value) {
+  return value.trim() ? undefined : 'Enter your name.';
+}
+
+function emailError(value) {
+  const trimmed = value.trim();
+  if (!trimmed) return 'Enter your email address.';
+  if (!EMAIL_PATTERN.test(trimmed)) return 'Please enter a valid email address.';
+  return undefined;
+}
+
+function passwordError(value) {
+  if (!value) return 'Enter a password.';
+  if (value.length < MIN_PASSWORD_LENGTH) {
+    return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  return undefined;
+}
+
+function confirmPasswordError(password, confirmPassword) {
+  if (!confirmPassword) return 'Confirm your password.';
+  if (confirmPassword !== password) return 'Passwords do not match.';
+  return undefined;
+}
 
 /* Icons — same style and stroke weight as Login. */
 
@@ -73,28 +99,43 @@ export default function Register() {
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [pending, setPending] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
-  /** Week 2 scope: Name, Email, Password. Nothing else is collected. */
+  /** Week 3 scope: Name, Email, Password, Confirm Password. Nothing else is collected. */
   function validate() {
     const errors = {};
-    if (!fullName.trim()) {
-      errors.fullName = 'Enter your name.';
-    }
-    if (!email.trim()) {
-      errors.email = 'Enter your email address.';
-    } else if (!EMAIL_PATTERN.test(email.trim())) {
-      errors.email = 'Enter a valid email address.';
-    }
-    if (!password) {
-      errors.password = 'Enter a password.';
-    }
+    const nameMsg = nameError(fullName);
+    const emailMsg = emailError(email);
+    const passwordMsg = passwordError(password);
+    const confirmMsg = confirmPasswordError(password, confirmPassword);
+    if (nameMsg) errors.fullName = nameMsg;
+    if (emailMsg) errors.email = emailMsg;
+    if (passwordMsg) errors.password = passwordMsg;
+    if (confirmMsg) errors.confirmPassword = confirmMsg;
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
+  }
+
+  /**
+   * Once a field is showing an error, re-check it as the user types so the message
+   * updates or disappears as soon as the value is fixed. Fields without an error are
+   * left alone, so nothing turns red mid-typing. Matches Login's pattern.
+   */
+  function revalidate(name, check, value) {
+    setFieldErrors((prev) => {
+      if (!prev[name]) return prev;
+      const next = { ...prev };
+      const msg = check(value);
+      if (msg) next[name] = msg;
+      else delete next[name];
+      return next;
+    });
   }
 
   async function handleSubmit(event) {
@@ -153,7 +194,10 @@ export default function Register() {
               name="name"
               type="text"
               value={fullName}
-              onChange={(e) => setFullName(e.target.value)}
+              onChange={(e) => {
+                setFullName(e.target.value);
+                revalidate('fullName', nameError, e.target.value);
+              }}
               placeholder="Enter your name"
               autoComplete="name"
               disabled={submitting}
@@ -171,7 +215,10 @@ export default function Register() {
               name="email"
               type="email"
               value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              onChange={(e) => {
+                setEmail(e.target.value);
+                revalidate('email', emailError, e.target.value);
+              }}
               placeholder="Enter your email"
               autoComplete="email"
               autoCapitalize="none"
@@ -191,7 +238,12 @@ export default function Register() {
               name="password"
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value;
+                setPassword(value);
+                revalidate('password', passwordError, value);
+                revalidate('confirmPassword', (v) => confirmPasswordError(value, v), confirmPassword);
+              }}
               placeholder="Enter your password"
               autoComplete="new-password"
               disabled={submitting}
@@ -208,6 +260,39 @@ export default function Register() {
               disabled={submitting}
             >
               {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </span>
+        </Field>
+
+        <Field label="Confirm Password" error={fieldErrors.confirmPassword}>
+          <span className="login__control login__control--password">
+            <span className="login__control-icon"><LockIcon /></span>
+            <TextInput
+              id="confirmPassword"
+              name="confirmPassword"
+              type={showConfirmPassword ? 'text' : 'password'}
+              value={confirmPassword}
+              onChange={(e) => {
+                const value = e.target.value;
+                setConfirmPassword(value);
+                revalidate('confirmPassword', (v) => confirmPasswordError(password, v), value);
+              }}
+              placeholder="Re-enter your password"
+              autoComplete="new-password"
+              disabled={submitting}
+              aria-invalid={Boolean(fieldErrors.confirmPassword)}
+              required
+            />
+            {/* Matches the Password field's visibility toggle. */}
+            <button
+              type="button"
+              className="login__reveal"
+              onClick={() => setShowConfirmPassword((v) => !v)}
+              aria-label={showConfirmPassword ? 'Hide password' : 'Show password'}
+              aria-pressed={showConfirmPassword}
+              disabled={submitting}
+            >
+              {showConfirmPassword ? <EyeOffIcon /> : <EyeIcon />}
             </button>
           </span>
         </Field>

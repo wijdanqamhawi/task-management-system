@@ -1,8 +1,10 @@
 /*
  * Dashboard — sits behind RouteGuard at /dashboard.
  *
- * All figures shown here are SAMPLE DATA from ./dashboardMock.js and are labelled as such
- * on screen. Nothing is fetched from the backend yet.
+ * Recent tasks and projects are SAMPLE DATA loaded with fetch() from public/data/*.json via
+ * ../api/dashboardData.js (with loading and error states). The summary counts still come
+ * from ./dashboardMock.js. All of it is labelled as sample data on screen; nothing is
+ * fetched from the backend yet.
  *
  * Only the Dashboard exists so far, so the other sidebar entries, the search field and the
  * notification bell are rendered as disabled placeholders rather than links or working
@@ -15,11 +17,10 @@ import '../styles/dashboard.css';
 import { Badge, Button, Select, Table } from '../components/index.jsx';
 import { Brand } from '../components/AuthShell.jsx';
 import { useSession } from '../auth/SessionContext.jsx';
+import { useProjects, useTasks } from '../api/dashboardData.js';
 import {
   PRIORITY_LABELS,
   SAMPLE_OVERDUE_TASKS,
-  SAMPLE_RECENT_PROJECTS,
-  SAMPLE_RECENT_TASKS,
   SAMPLE_STATUS_COUNTS,
   SAMPLE_TOTAL_PROJECTS,
   STATUS_LABELS,
@@ -128,7 +129,10 @@ export default function Dashboard({ preview: previewProp = false }) {
   // Also gated on DEV so the preview branch is compiled out of production builds.
   const preview = import.meta.env.DEV && previewProp;
 
-  // Recent-tasks search + filters. Derived from SAMPLE_RECENT_TASKS on every render rather
+  const { data: tasks, loading: tasksLoading, error: tasksError } = useTasks();
+  const { data: projects, loading: projectsLoading, error: projectsError } = useProjects();
+
+  // Recent-tasks search + filters. Derived from the fetched tasks on every render rather
   // than stored as its own list, so there is never a second, out-of-sync copy of the tasks.
   const [taskSearch, setTaskSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('ALL');
@@ -145,14 +149,14 @@ export default function Dashboard({ preview: previewProp = false }) {
 
   const filteredTasks = useMemo(() => {
     const term = taskSearch.trim().toLowerCase();
-    return SAMPLE_RECENT_TASKS.filter((task) => {
+    return tasks.filter((task) => {
       const { name, status, priority } = task;
       const matchesSearch = term === '' || name.toLowerCase().includes(term);
       const matchesStatus = statusFilter === 'ALL' || status === statusFilter;
       const matchesPriority = priorityFilter === 'ALL' || priority === priorityFilter;
       return matchesSearch && matchesStatus && matchesPriority;
     });
-  }, [taskSearch, statusFilter, priorityFilter]);
+  }, [tasks, taskSearch, statusFilter, priorityFilter]);
 
   const filtersActive = taskSearch.trim() !== '' || statusFilter !== 'ALL' || priorityFilter !== 'ALL';
 
@@ -267,7 +271,12 @@ export default function Dashboard({ preview: previewProp = false }) {
                 </Button>
               </div>
 
-              <Table columns={taskColumns} rows={filteredTasks} empty="No tasks match the current filters." />
+              {tasksLoading && <p className="dash__state" role="status">Loading tasks...</p>}
+              {tasksError && <p className="dash__state dash__state--error" role="alert">{tasksError}</p>}
+              {!tasksLoading && !tasksError && (
+                <Table columns={taskColumns} rows={filteredTasks}
+                       empty={tasks.length === 0 ? 'No tasks yet.' : 'No tasks match the current filters.'} />
+              )}
             </div>
 
             <div className="dash__panel">
@@ -288,8 +297,14 @@ export default function Dashboard({ preview: previewProp = false }) {
 
             <div className="dash__panel dash__panel--full">
               <h2 className="dash__panel-title">Recent Projects</h2>
+              {projectsLoading && <p className="dash__state" role="status">Loading projects...</p>}
+              {projectsError && <p className="dash__state dash__state--error" role="alert">{projectsError}</p>}
+              {!projectsLoading && !projectsError && projects.length === 0 && (
+                <p className="dash__state">No projects yet.</p>
+              )}
+              {!projectsLoading && !projectsError && projects.length > 0 && (
               <ul className="dash__projects">
-                {SAMPLE_RECENT_PROJECTS.map((p) => (
+                {projects.map((p) => (
                   <li key={p.id} className="dash__project">
                     <div className="dash__project-head">
                       <span className="dash__project-name">{p.name}</span>
@@ -303,6 +318,7 @@ export default function Dashboard({ preview: previewProp = false }) {
                   </li>
                 ))}
               </ul>
+              )}
             </div>
           </section>
         </main>

@@ -21,7 +21,7 @@ async function request(path, { method = 'GET', body, signal } = {}) {
   const init = {
     method,
     signal,
-    // Sends the JSESSIONID session cookie established by POST /api/auth/login (R-002).
+    // Sends the session cookie established by POST /api/auth/login (R-002).
     credentials: 'include',
     headers: {},
   };
@@ -38,7 +38,11 @@ async function request(path, { method = 'GET', body, signal } = {}) {
   if (response.status === 204) return null;
 
   const text = await response.text();
-  const parsed = text ? JSON.parse(text) : null;
+  let parsed = null;
+  if (text) {
+    // An error from a proxy or gateway may not be JSON; that must still surface as an ApiError.
+    try { parsed = JSON.parse(text); } catch { parsed = null; }
+  }
 
   if (!response.ok) throw new ApiError(response.status, parsed);
   return parsed;

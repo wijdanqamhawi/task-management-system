@@ -7,16 +7,16 @@
 ## Summary
 
 Build a full-stack Task Management System for teams and departments: a React single-page
-frontend over a Spring Boot REST backend over an Oracle Database. The system delivers user
+frontend over a Python (FastAPI) REST backend over an Oracle Database. The system delivers user
 management with role-based authorization, project management with membership, task management
 with the fixed To Do → In Progress → Review → Completed workflow, task sharing derived from
 project membership, dashboards, search and filtering, and in-app notifications.
 
 The technical approach is deliberately minimal: the prescribed stack and nothing beyond it.
-Authentication uses Spring Security's built-in session and password hashing rather than any
-token library; API documentation is hand-written Markdown rather than a generated-documentation
+Authentication uses a signed server-side session cookie with bcrypt password hashing and a
+per-request account check, rather than any token library; API documentation is hand-written Markdown rather than a generated-documentation
 dependency; the frontend uses hand-written CSS3 rather than any UI component library; data
-access is JdbcTemplate writing SQL directly rather than an ORM; routing is a hand-written
+access is python-oracledb executing raw SQL with bind variables rather than an ORM; routing is a hand-written
 module over the browser History API rather than a router library. After the compliance review
 of 2026-09-21, exactly **one** non-official dependency remains — Vite, the React build step —
 and it is named in Complexity Tracking with the requirement it serves.
@@ -31,18 +31,20 @@ and it is named in Complexity Tracking with the requirement it serves.
 
 ## Technical Context
 
-**Language/Version**: Java 21 (LTS) on the backend **[OFFICIAL: Java; PLAN: version]**;
+**Language/Version**: Python 3.13 on the backend **[PROJECT-OWNER DECISION 2026-10-04, replacing
+the official Java/Spring Boot; see Constitution v3.0.0]**;
 JavaScript (ES2022) and JSX on the frontend **[OFFICIAL]**
 
 **Primary Dependencies**:
 
-- Backend: Spring Boot 3.x — `spring-boot-starter-web` (Spring MVC, REST),
-  `spring-boot-starter-security` (authentication & authorization),
-  `spring-boot-starter-validation`, `spring-boot-starter-jdbc` (JdbcTemplate — SQL and PL/SQL
-  executed directly), `spring-boot-starter-test`, Oracle JDBC driver (`ojdbc11`)
-  **[OFFICIAL: Spring Boot / Spring MVC, RESTful APIs, Authentication & Authorization, SQL,
-  PL/SQL; PLAN: which starters]**
-- **No ORM.** Spring Data JPA / Hibernate is deliberately not used — see R-001.
+- Backend: FastAPI (routing, validation via Pydantic) served by Uvicorn on port 8080;
+  `python-oracledb` in thin mode (SQL and PL/SQL executed directly, connection pool);
+  `python-dotenv` (configuration from environment variables); `bcrypt` (password hashing);
+  `itsdangerous` (signed session cookie, via Starlette's `SessionMiddleware`);
+  `python-multipart` (attachment upload); `email-validator` (email format validation)
+  **[OFFICIAL: RESTful APIs, Authentication & Authorization, SQL, PL/SQL; OWNER: Python/FastAPI;
+  PLAN: which libraries]**
+- **No ORM.** SQLAlchemy and similar are deliberately not used — see R-001.
 - Frontend: React 18, Vite (build tool only) **[OFFICIAL: React; PLAN: build tool — see
   Complexity Tracking]**
 - **No router library.** Routing is a small hand-written module over the browser History API
@@ -54,8 +56,8 @@ JavaScript (ES2022) and JSX on the frontend **[OFFICIAL]**
 hand-written SQL DDL; dashboard aggregation and scheduled notification generation implemented
 as PL/SQL packages **[OFFICIAL: Oracle Database, SQL, PL/SQL]**
 
-**Testing**: JUnit 5 + Spring Boot Test + MockMvc for backend unit, integration, and REST
-contract tests (all included in `spring-boot-starter-test`); documented manual test procedures
+**Testing**: pytest + FastAPI `TestClient` (httpx) for backend unit, integration, and REST
+contract tests, run against a real Oracle schema; documented manual test procedures
 for the frontend and for responsive behavior **[OFFICIAL: Testing and debugging, testing
 documentation deliverable; PLAN: the specific approach]**
 
@@ -81,12 +83,12 @@ endpoints, ~11 screens (see Screen inventory below).
 
 *GATE: Must pass before Phase 0 research. Re-check after Phase 1 design.*
 
-Gates derived from `.specify/memory/constitution.md` v2.1.0.
+Gates derived from `.specify/memory/constitution.md` v3.0.0.
 
 | # | Principle | Gate | Initial | Post-Design |
 |---|-----------|------|---------|-------------|
 | I | Scope Fidelity | Every planned capability traces to an [OFFICIAL] or [CLARIFIED] item; nothing else is built | PASS | PASS |
-| II | Fixed Technology Stack | Only HTML5/CSS3/JS/React, Java/Spring Boot/Spring MVC, Oracle/SQL/PL/SQL, Git/GitHub, testing/debugging, and Docker for deployment only; no substitutions; application code independent of Docker | PASS | PASS |
+| II | Fixed Technology Stack | Only HTML5/CSS3/JS/React, Python/FastAPI, Oracle/SQL/PL/SQL, Git/GitHub, testing/debugging, and Docker for deployment only; no substitutions; application code independent of Docker | PASS | PASS |
 | III | REST API as Layer Boundary | Frontend reaches data only via documented REST endpoints; API documentation kept current | PASS | PASS |
 | IV | Relational Data Design Integrity | ERD produced before development; officially listed entities modelled; many-to-many relationships modelled relationally | PASS | PASS |
 | V | AuthN, AuthZ, Role-Based Access | Every endpoint authenticated; authorization enforced server-side; deactivation revokes access | PASS | PASS |
@@ -103,9 +105,9 @@ Gates derived from `.specify/memory/constitution.md` v2.1.0.
    only in Phase 12 (Deployment), in tasks T150 and T152. No further action.
 2. **Supporting tools, reduced to one.** The compliance review of 2026-09-21 removed two of the
    three previously planned non-official dependencies. Only **Vite** remains, because JSX cannot
-   run in a browser without a build step. Spring Data JPA was replaced by `spring-boot-starter-
-   jdbc` (R-001) and React Router by a hand-written History API module (R-013), both of which
-   move the work onto officially named technologies. Principle II permits "supporting libraries
+   run in a browser without a build step. The ORM was ruled out in favour of raw SQL through
+   python-oracledb (R-001) and React Router by a hand-written History API module (R-013), both
+   of which move the work onto officially named technologies. Principle II permits "supporting libraries
    only where they serve a required functional area and do not replace a prescribed technology";
    Vite replaces nothing and ships no runtime code.
 
@@ -133,24 +135,21 @@ specs/001-task-management-system/
 
 ```text
 backend/
-├── src/main/java/com/computercenter/taskmanagement/
-│   ├── TaskManagementApplication.java
-│   ├── config/                  # Spring Security config, CORS, Jackson, scheduling
-│   ├── user/                    # User, Role: entity, repository, service, controller
-│   ├── project/                 # Project, ProjectMember
-│   ├── task/                    # Task, TaskAssignee, Subtask, status workflow
-│   ├── comment/                 # Comment
-│   ├── attachment/              # Attachment upload/download
-│   ├── notification/            # Notification entity, triggers, scheduled jobs
-│   ├── dashboard/               # Dashboard aggregation (calls PL/SQL)
-│   ├── search/                  # Task search and filtering
-│   └── common/                  # Error handling, DTO base, pagination, auditing
-├── src/main/resources/
-│   ├── application.yml          # Datasource, file-storage, scheduling settings
-│   └── application-docker.yml   # Deployment profile
-├── src/test/java/...            # unit/ integration/ contract/ mirroring the above
-├── Dockerfile                   # Deployment phase only
-└── pom.xml
+├── app/
+│   ├── main.py                  # app factory, session middleware, routers, scheduler lifespan
+│   ├── config.py                # environment-driven settings (python-dotenv)
+│   ├── db.py                    # oracledb pool, raw-SQL helpers, PL/SQL call helpers
+│   ├── deps.py                  # current_user (re-checks active state), role dependencies
+│   ├── security.py              # bcrypt hashing
+│   ├── errors.py                # contract error body, fieldErrors
+│   ├── common/                  # paging.py, access.py (the shared visibility predicate)
+│   └── modules/                 # one package per feature: router / service (+ repository SQL)
+│       ├── auth/  users/  projects/  tasks/  subtasks/  comments/
+│       └── attachments/  dashboard/  notifications/   # dashboard calls PKG_DASHBOARD
+├── tests/                       # pytest: unit + integration + contract, real Oracle
+├── requirements.txt
+├── .env                         # local only, gitignored (see ../.env.example)
+└── Dockerfile                   # Deployment phase only
 
 frontend/
 ├── src/
@@ -182,7 +181,7 @@ docs/
 ```
 
 **Structure Decision**: A two-part web application — `backend/` and `frontend/` — matching the
-officially prescribed split between a RESTful Java backend and a React frontend, plus
+officially prescribed split between a RESTful Python backend and a React frontend, plus
 `database/` for the SQL and PL/SQL that the official document requires as first-class artifacts
 rather than as generated output, and `docs/` for the five documentation deliverables. The
 frontend and backend are separately buildable and separately deployable; they share nothing but
@@ -201,7 +200,7 @@ produces each deliverable.
 | 4 | UI Design | This plan, Phase 1 | Screen inventory below; `frontend/src/styles/` tokens |
 | 5 | Development | `/speckit-tasks` → `/speckit-implement` | `backend/`, `frontend/` |
 | 6 | API Integration | `/speckit-implement` | `frontend/src/api/` against `contracts/rest-api.md` |
-| 7 | Testing | `/speckit-implement` | `backend/src/test/`, `docs/testing.md` |
+| 7 | Testing | `/speckit-implement` | `backend/tests/`, `docs/testing.md` |
 | 8 | Code Review | Each cycle, via GitHub | Pull request reviews |
 | 9 | Deployment | Final cycle | `Dockerfile`, `docs/deployment.md` |
 | 10 | Documentation | Final cycle | `docs/api.md`, `docs/final-report.md` |
@@ -261,15 +260,16 @@ marks as optional **[OFFICIAL: "may provide"]**, and the decision to build them 
 |-----------|------------|--------------------------------------|
 | ~~Docker, absent from Constitution II's list~~ — **resolved 2026-09-21** | — | Closed by constitution v2.1.0, which names Docker as an official deployment technology and forbids application code from depending on it. Confined to Phase 12. |
 | **Vite** (React build tool) — *the only remaining non-official dependency* | React with JSX cannot run in a browser without a build step; no official document names a build tool because the choice is assumed | Two alternatives were tested against the rule "prefer the official stack where reasonable" and rejected: (a) `React.createElement` with no build step avoids the dependency but abandons JSX, which is how React is universally written and taught; (b) Babel standalone compiling in the browser is not viable for a deployed application. Vite ships no runtime code — the deployed artifact is plain HTML, CSS, and JavaScript. |
+| **Backend supporting libraries**: bcrypt, itsdangerous, python-multipart, email-validator (runtime); pytest, httpx (test only) | The Python backend stack (owner decision, Constitution v3.0.0) has no built-in password hashing, cookie signing, multipart parsing or email validation; FastAPI/Starlette name `itsdangerous`, `python-multipart` and `email-validator` as the standard optional dependencies for exactly these jobs | Hand-rolling password hashing or cookie signing is a security risk; the Constitution permits supporting libraries that "serve a required functional area and do not replace a prescribed technology" (authentication, file attachments, validation). None replaces FastAPI, python-oracledb or Oracle. |
 | ~~React Router~~ — **removed 2026-09-21** | — | Replaced by a hand-written module over the browser History API (~70 lines of plain JavaScript). See R-013. Plain JavaScript is officially required, so this removes a dependency rather than adding one. |
-| ~~Spring Data JPA~~ — **removed 2026-09-21** | — | Replaced by `spring-boot-starter-jdbc` (JdbcTemplate) writing SQL directly. See R-001. SQL is officially required and JdbcTemplate is part of Spring Boot, so this removes a dependency and increases the use of officially named technologies. |
+| ~~ORM (JPA, SQLAlchemy)~~ — **ruled out** | — | Replaced by python-oracledb executing hand-written SQL directly. See R-001. SQL is officially required, so this removes a dependency and increases the use of officially named technologies. |
 | **No UI library, no CSS framework** | — | Not a violation; recorded because it is a deliberate constraint. Responsive layout is hand-written CSS3, as the official document names CSS3 and Responsive Web Design but no framework. |
 
-**Not adopted, and deliberately so**: no JWT/token library (Spring Security sessions suffice),
-no OpenAPI/Swagger generator (API documentation is hand-written Markdown), no HTTP client
+**Not adopted, and deliberately so**: no JWT/token library (a signed session cookie suffices),
+no OpenAPI/Swagger UI (FastAPI's built-in docs endpoints are disabled; API documentation is hand-written Markdown), no HTTP client
 library (browser `fetch`), no state-management library (React's own state), no frontend test
 framework (frontend testing is documented manual procedure), no mapping library, no logging
-framework beyond Spring Boot's default, no cloud or third-party service of any kind.
+framework beyond Python's standard `logging`, no cloud or third-party service of any kind.
 
 ## Out of Scope
 

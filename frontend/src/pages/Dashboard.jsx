@@ -1,83 +1,26 @@
 /*
- * Dashboard — sits behind RouteGuard at /dashboard.
- *
- * Recent tasks and projects are SAMPLE DATA loaded with fetch() from public/data/*.json via
- * ../api/dashboardData.js (with loading and error states). The summary counts still come
- * from ./dashboardMock.js. All of it is labelled as sample data on screen; nothing is
- * fetched from the backend yet.
- *
- * Only the Dashboard exists so far, so the other sidebar entries, the search field and the
- * notification bell are rendered as disabled placeholders rather than links or working
- * controls. Sign out is real (SessionContext.logout).
- *
- * Icons are inline SVG: no icon library, no new dependency (Constitution II).
+ * Dashboard: the nine required figures (FR-036..FR-045) from GET /api/dashboard, computed per
+ * request by PKG_DASHBOARD and scoped to what the signed-in user may see. Recent tasks come from
+ * GET /api/tasks. No sample data remains.
  */
 import { useMemo, useState } from 'react';
 import '../styles/dashboard.css';
-import { Badge, Button, Select, Table } from '../components/index.jsx';
-import { Brand } from '../components/AuthShell.jsx';
+import AppLayout from '../components/AppLayout.jsx';
+import TaskTable from '../components/TaskTable.jsx';
+import { Badge, Button, Select } from '../components/index.jsx';
+import { Async, PageHeader } from '../components/common.jsx';
+import { AlertIcon, CheckCircleIcon, ClockIcon, ProjectsIcon, SearchIcon, TasksIcon } from '../components/icons.jsx';
+import { Link } from '../router/Link.jsx';
+import { useApi } from '../hooks/useApi.js';
+import { useVisibleProjects } from '../hooks/useVisibleProjects.js';
 import { useSession } from '../auth/SessionContext.jsx';
-import { useProjects, useTasks } from '../api/dashboardData.js';
-import {
-  PRIORITY_LABELS,
-  SAMPLE_OVERDUE_TASKS,
-  SAMPLE_STATUS_COUNTS,
-  SAMPLE_TOTAL_PROJECTS,
-  STATUS_LABELS,
-} from './dashboardMock.js';
-
-const icon = (children) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
-       strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-    {children}
-  </svg>
-);
-
-const DashboardIcon = () => icon(<><rect x="3" y="3" width="7" height="9" rx="1.5" /><rect x="14" y="3" width="7" height="5" rx="1.5" /><rect x="14" y="12" width="7" height="9" rx="1.5" /><rect x="3" y="16" width="7" height="5" rx="1.5" /></>);
-const ProjectsIcon  = () => icon(<path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />);
-const TasksIcon     = () => icon(<><rect x="4" y="3" width="16" height="18" rx="2" /><path d="m9 12 2 2 4-4" /></>);
-const TeamIcon      = () => icon(<><circle cx="9" cy="8" r="3.2" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4A6 6 0 0 1 21 20" /></>);
-const SettingsIcon  = () => icon(<><circle cx="12" cy="12" r="3" /><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.9 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.9.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.9-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.9V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1Z" /></>);
-const SearchIcon    = () => icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>);
-const BellIcon      = () => icon(<><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" /><path d="M10.3 20a2 2 0 0 0 3.4 0" /></>);
-const MenuIcon      = () => icon(<path d="M4 6h16M4 12h16M4 18h16" />);
-const CloseIcon     = () => icon(<path d="M6 6l12 12M18 6 6 18" />);
+import { getDashboard } from '../api/dashboard.js';
+import { searchTasks } from '../api/tasks.js';
+import { PRIORITIES, PRIORITY_LABELS, STATUSES, STATUS_LABELS } from '../constants.js';
 
 const STAT_ICONS = {
-  projects: ProjectsIcon,
-  tasks: TasksIcon,
-  completed: () => icon(<><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5" /></>),
-  pending: () => icon(<><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></>),
-  overdue: () => icon(<><path d="M12 3 2 20h20Z" /><path d="M12 10v4M12 17.5v.01" /></>),
+  projects: ProjectsIcon, tasks: TasksIcon, completed: CheckCircleIcon, pending: ClockIcon, overdue: AlertIcon,
 };
-
-/* Only the Dashboard exists; the rest are placeholders until their pages are built. */
-const NAV_ITEMS = [
-  { key: 'dashboard', label: 'Dashboard', Icon: DashboardIcon, active: true },
-  { key: 'projects',  label: 'Projects',  Icon: ProjectsIcon },
-  { key: 'my-tasks',  label: 'My Tasks',  Icon: TasksIcon },
-  { key: 'team',      label: 'Team',      Icon: TeamIcon },
-  { key: 'settings',  label: 'Settings',  Icon: SettingsIcon },
-];
-
-const STATUS_ORDER = ['TO_DO', 'IN_PROGRESS', 'REVIEW', 'COMPLETED'];
-const PRIORITY_ORDER = ['HIGH', 'MEDIUM', 'LOW'];
-
-/* Recent-tasks toolbar: "All" plus the same status/priority values the table already uses. */
-const STATUS_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All' },
-  ...STATUS_ORDER.map((s) => ({ value: s, label: STATUS_LABELS[s] })),
-];
-const PRIORITY_FILTER_OPTIONS = [
-  { value: 'ALL', label: 'All' },
-  ...PRIORITY_ORDER.map((p) => ({ value: p, label: PRIORITY_LABELS[p] })),
-];
-
-function initials(name) {
-  const parts = String(name ?? '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  return (parts[0][0] + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
-}
 
 function StatCard({ kind, label, value }) {
   const Icon = STAT_ICONS[kind];
@@ -92,237 +35,129 @@ function StatCard({ kind, label, value }) {
   );
 }
 
-function Sidebar({ open, onClose }) {
+function Breakdown({ rows, total }) {
   return (
-    <aside className={`dash__sidebar${open ? ' dash__sidebar--open' : ''}`} aria-label="Primary">
-      <div className="dash__sidebar-head">
-        <div className="login__brand"><Brand /></div>
-        <button type="button" className="dash__icon-btn dash__sidebar-close"
-                onClick={onClose} aria-label="Close menu">
-          <CloseIcon />
-        </button>
-      </div>
-
-      <nav className="dash__nav">
-        {NAV_ITEMS.map(({ key, label, Icon, active }) => (
-          active ? (
-            <span key={key} className="dash__nav-item dash__nav-item--active" aria-current="page">
-              <Icon /><span>{label}</span>
-            </span>
-          ) : (
-            <button key={key} type="button" className="dash__nav-item" disabled
-                    title="Not available yet">
-              <Icon /><span>{label}</span>
-              <span className="dash__soon">Soon</span>
-            </button>
-          )
-        ))}
-      </nav>
-    </aside>
+    <ul className="breakdown">
+      {rows.map((r) => (
+        <li key={r.key} className="breakdown__row">
+          <Badge value={r.key}>{r.label}</Badge>
+          <span className="bar" aria-hidden="true">
+            <span className={`bar__fill bar__fill--${r.key}`} style={{ width: `${total ? (r.count / total) * 100 : 0}%` }} />
+          </span>
+          <strong>{r.count}</strong>
+        </li>
+      ))}
+    </ul>
   );
 }
 
-/** `preview` is passed only by the development-only /dev/dashboard route (App.jsx). */
-export default function Dashboard({ preview: previewProp = false }) {
-  const { user, logout } = useSession();
-  const [menuOpen, setMenuOpen] = useState(false);
-  // Also gated on DEV so the preview branch is compiled out of production builds.
-  const preview = import.meta.env.DEV && previewProp;
+export default function Dashboard() {
+  const { user } = useSession();
+  const visible = useVisibleProjects();
+  const dashboard = useApi((signal) => getDashboard({ signal }), []);
 
-  const { data: tasks, loading: tasksLoading, error: tasksError } = useTasks();
-  const { data: projects, loading: projectsLoading, error: projectsError } = useProjects();
-
-  // Recent-tasks search + filters. Derived from the fetched tasks on every render rather
-  // than stored as its own list, so there is never a second, out-of-sync copy of the tasks.
-  const [taskSearch, setTaskSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('ALL');
-  const [priorityFilter, setPriorityFilter] = useState('ALL');
-
-  const handleTaskSearchChange = (e) => setTaskSearch(e.target.value);
-  const handleStatusFilterChange = (e) => setStatusFilter(e.target.value);
-  const handlePriorityFilterChange = (e) => setPriorityFilter(e.target.value);
-  const handleClearFilters = () => {
-    setTaskSearch('');
-    setStatusFilter('ALL');
-    setPriorityFilter('ALL');
-  };
-
-  const filteredTasks = useMemo(() => {
-    const term = taskSearch.trim().toLowerCase();
-    return tasks.filter((task) => {
-      const { name, status, priority } = task;
-      const matchesSearch = term === '' || name.toLowerCase().includes(term);
-      const matchesStatus = statusFilter === 'ALL' || status === statusFilter;
-      const matchesPriority = priorityFilter === 'ALL' || priority === priorityFilter;
-      return matchesSearch && matchesStatus && matchesPriority;
-    });
-  }, [tasks, taskSearch, statusFilter, priorityFilter]);
-
-  const filtersActive = taskSearch.trim() !== '' || statusFilter !== 'ALL' || priorityFilter !== 'ALL';
-
-  const displayName = preview
-    ? 'Preview (not signed in)'
-    : user?.fullName ?? user?.username ?? user?.email ?? 'Account';
-
-  const totalTasks = STATUS_ORDER.reduce((sum, s) => sum + SAMPLE_STATUS_COUNTS[s], 0);
-  const completed = SAMPLE_STATUS_COUNTS.COMPLETED;
-
-  const stats = [
-    { kind: 'projects',  label: 'Total Projects',  value: SAMPLE_TOTAL_PROJECTS },
-    { kind: 'tasks',     label: 'Total Tasks',     value: totalTasks },
-    { kind: 'completed', label: 'Completed Tasks', value: completed },
-    { kind: 'pending',   label: 'Pending Tasks',   value: totalTasks - completed },
-    { kind: 'overdue',   label: 'Overdue Tasks',   value: SAMPLE_OVERDUE_TASKS },
-  ];
-
-  const taskColumns = [
-    { key: 'name', header: 'Task', render: (r) => <span className="dash__task-name">{r.name}</span> },
-    { key: 'assignee', header: 'Assigned to' },
-    { key: 'priority', header: 'Priority',
-      render: (r) => <Badge value={r.priority}>{PRIORITY_LABELS[r.priority]}</Badge> },
-    { key: 'status', header: 'Status',
-      render: (r) => <Badge value={r.status}>{STATUS_LABELS[r.status]}</Badge> },
-    { key: 'due', header: 'Due date' },
-  ];
+  const [term, setTerm] = useState('');
+  const [title, setTitle] = useState('');
+  const [status, setStatus] = useState('');
+  const [priority, setPriority] = useState('');
+  const params = useMemo(() => ({ title, status, priority, size: 8, sort: 'createdAt,desc' }), [title, status, priority]);
+  const recent = useApi((signal) => searchTasks(params, { signal }), [JSON.stringify(params)]);
+  const filtersActive = Boolean(title || status || priority);
 
   return (
-    <div className="dash">
-      <Sidebar open={menuOpen} onClose={() => setMenuOpen(false)} />
-      {menuOpen && <div className="dash__scrim" onClick={() => setMenuOpen(false)} />}
+    <AppLayout title="Dashboard">
+      <Async state={dashboard}>
+        {(d) => {
+          const stats = [
+            { kind: 'projects', label: 'Total Projects', value: d.totalProjects },
+            { kind: 'tasks', label: 'Total Tasks', value: d.totalTasks },
+            { kind: 'completed', label: 'Completed Tasks', value: d.completedTasks },
+            { kind: 'pending', label: 'Pending Tasks', value: d.pendingTasks },
+            { kind: 'overdue', label: 'Overdue Tasks', value: d.overdueTasks },
+          ];
+          return (
+            <>
+              <PageHeader title={`Welcome, ${user.fullName ?? user.username}`}
+                          subtitle="Figures cover the projects you can see." />
+              <section aria-label="Summary" className="dash__stats">
+                {stats.map((s) => <StatCard key={s.kind} {...s} />)}
+              </section>
 
-      <div className="dash__main">
-        <header className="dash__topbar">
-          <button type="button" className="dash__icon-btn dash__menu-btn"
-                  onClick={() => setMenuOpen(true)} aria-label="Open menu">
-            <MenuIcon />
-          </button>
+              <section className="dash__grid">
+                <div className="dash__panel dash__panel--wide">
+                  <h2 className="dash__panel-title">Recent Tasks</h2>
+                  <form className="dash__task-filters" role="search"
+                        onSubmit={(e) => { e.preventDefault(); setTitle(term.trim()); }}>
+                    <label className="dash__task-search">
+                      <span className="dash__search-icon"><SearchIcon /></span>
+                      <input type="search" value={term} onChange={(e) => setTerm(e.target.value)}
+                             placeholder="Search tasks by title" aria-label="Search tasks by title" />
+                    </label>
+                    <Select className="dash__task-filter" aria-label="Filter by status" value={status}
+                            onChange={(e) => setStatus(e.target.value)}
+                            options={[{ value: '', label: 'All statuses' }, ...STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))]} />
+                    <Select className="dash__task-filter" aria-label="Filter by priority" value={priority}
+                            onChange={(e) => setPriority(e.target.value)}
+                            options={[{ value: '', label: 'All priorities' }, ...PRIORITIES.map((p) => ({ value: p, label: PRIORITY_LABELS[p] }))]} />
+                    <Button type="button" className="dash__clear-filters" disabled={!filtersActive && !term}
+                            onClick={() => { setTerm(''); setTitle(''); setStatus(''); setPriority(''); }}>
+                      Clear filters
+                    </Button>
+                  </form>
+                  <Async state={recent}>
+                    {(page) => (
+                      <>
+                        <TaskTable tasks={page.content} user={user} managedIds={visible.ids} showProject={false} onChanged={() => { recent.reload(); dashboard.reload(); }}
+                                   empty={filtersActive ? 'No tasks match the current filters.' : 'No tasks yet.'} />
+                        <p><Link to="/tasks" className="text-link">View all tasks</Link></p>
+                      </>
+                    )}
+                  </Async>
+                </div>
 
-          <h1 className="dash__title">Dashboard</h1>
+                <div className="dash__panel">
+                  <h2 className="dash__panel-title">Task Statuses</h2>
+                  <Breakdown total={d.totalTasks}
+                             rows={STATUSES.map((s) => ({ key: s, label: STATUS_LABELS[s], count: d.tasksByStatus[s] ?? 0 }))} />
+                  <h2 className="dash__panel-title" style={{ marginTop: 'var(--sp-5)' }}>Task Priorities</h2>
+                  <Breakdown total={d.totalTasks}
+                             rows={PRIORITIES.map((p) => ({ key: p, label: PRIORITY_LABELS[p], count: d.tasksByPriority[p] ?? 0 }))} />
+                </div>
 
-          <label className="dash__search">
-            <span className="dash__search-icon"><SearchIcon /></span>
-            <input type="search" placeholder="Search (coming soon)" disabled
-                   aria-label="Search — not available yet" />
-          </label>
+                <div className="dash__panel dash__panel--wide">
+                  <h2 className="dash__panel-title">Project Progress</h2>
+                  {d.projectProgress.length === 0 && <p className="dash__state">No projects yet.</p>}
+                  <ul className="dash__projects">
+                    {d.projectProgress.map((p) => (
+                      <li key={p.projectId} className="dash__project">
+                        <div className="dash__project-head">
+                          <Link to={`/projects/${p.projectId}`} className="dash__project-name text-link">{p.name}</Link>
+                          <span className="muted small">{p.completedTasks} of {p.totalTasks} tasks</span>
+                        </div>
+                        <div className="dash__progress" role="progressbar" aria-label={`${p.name} progress`}
+                             aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.percentComplete}>
+                          <span className="dash__progress-fill" style={{ width: `${p.percentComplete}%` }} />
+                        </div>
+                        <span className="dash__project-pct">{p.percentComplete}%</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-          <button type="button" className="dash__icon-btn" disabled
-                  aria-label="Notifications — not available yet" title="Not available yet">
-            <BellIcon />
-          </button>
-
-          <div className="dash__profile">
-            <span className="dash__avatar" aria-hidden="true">{initials(displayName)}</span>
-            <span className="dash__profile-name">{displayName}</span>
-            <Button type="button" className="dash__signout" onClick={logout} disabled={preview}>
-              Sign out
-            </Button>
-          </div>
-        </header>
-
-        <main className="dash__content">
-          <p className="dash__sample-note" role="note">
-            <strong>Sample data.</strong> The figures, tasks and projects below are placeholders
-            and are not connected to the backend yet.
-          </p>
-
-          <section aria-label="Summary" className="dash__stats">
-            {stats.map((s) => <StatCard key={s.kind} {...s} />)}
-          </section>
-
-          <section className="dash__grid">
-            <div className="dash__panel dash__panel--wide">
-              <h2 className="dash__panel-title">Recent Tasks</h2>
-
-              <div className="dash__task-filters">
-                <label className="dash__task-search">
-                  <span className="dash__search-icon"><SearchIcon /></span>
-                  <input
-                    type="search"
-                    value={taskSearch}
-                    onChange={handleTaskSearchChange}
-                    placeholder="Search tasks by title"
-                    aria-label="Search tasks by title"
-                  />
-                </label>
-
-                <Select
-                  className="dash__task-filter"
-                  aria-label="Filter by status"
-                  value={statusFilter}
-                  onChange={handleStatusFilterChange}
-                  options={STATUS_FILTER_OPTIONS}
-                />
-
-                <Select
-                  className="dash__task-filter"
-                  aria-label="Filter by priority"
-                  value={priorityFilter}
-                  onChange={handlePriorityFilterChange}
-                  options={PRIORITY_FILTER_OPTIONS}
-                />
-
-                <Button
-                  type="button"
-                  className="dash__clear-filters"
-                  onClick={handleClearFilters}
-                  disabled={!filtersActive}
-                >
-                  Clear filters
-                </Button>
-              </div>
-
-              {tasksLoading && <p className="dash__state" role="status">Loading tasks...</p>}
-              {tasksError && <p className="dash__state dash__state--error" role="alert">{tasksError}</p>}
-              {!tasksLoading && !tasksError && (
-                <Table columns={taskColumns} rows={filteredTasks}
-                       empty={tasks.length === 0 ? 'No tasks yet.' : 'No tasks match the current filters.'} />
-              )}
-            </div>
-
-            <div className="dash__panel">
-              <h2 className="dash__panel-title">Task Statuses</h2>
-              <ul className="dash__statuses">
-                {STATUS_ORDER.map((s) => (
-                  <li key={s} className="dash__status-row">
-                    <Badge value={s}>{STATUS_LABELS[s]}</Badge>
-                    <span className="dash__status-bar" aria-hidden="true">
-                      <span className={`dash__status-fill dash__status-fill--${s}`}
-                            style={{ width: `${(SAMPLE_STATUS_COUNTS[s] / totalTasks) * 100}%` }} />
-                    </span>
-                    <strong>{SAMPLE_STATUS_COUNTS[s]}</strong>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="dash__panel dash__panel--full">
-              <h2 className="dash__panel-title">Recent Projects</h2>
-              {projectsLoading && <p className="dash__state" role="status">Loading projects...</p>}
-              {projectsError && <p className="dash__state dash__state--error" role="alert">{projectsError}</p>}
-              {!projectsLoading && !projectsError && projects.length === 0 && (
-                <p className="dash__state">No projects yet.</p>
-              )}
-              {!projectsLoading && !projectsError && projects.length > 0 && (
-              <ul className="dash__projects">
-                {projects.map((p) => (
-                  <li key={p.id} className="dash__project">
-                    <div className="dash__project-head">
-                      <span className="dash__project-name">{p.name}</span>
-                      <Badge value={p.status}>{STATUS_LABELS[p.status]}</Badge>
-                    </div>
-                    <div className="dash__progress" role="progressbar" aria-label={`${p.name} progress`}
-                         aria-valuemin={0} aria-valuemax={100} aria-valuenow={p.progress}>
-                      <span className="dash__progress-fill" style={{ width: `${p.progress}%` }} />
-                    </div>
-                    <span className="dash__project-pct">{p.progress}%</span>
-                  </li>
-                ))}
-              </ul>
-              )}
-            </div>
-          </section>
-        </main>
-      </div>
-    </div>
+                <div className="dash__panel">
+                  <h2 className="dash__panel-title">Tasks per Person</h2>
+                  {d.tasksByUser.length === 0 && <p className="dash__state">No assigned tasks.</p>}
+                  <ul className="item-list">
+                    {d.tasksByUser.map((u) => (
+                      <li key={u.userId}><span className="item-list__main">{u.fullName}</span><strong>{u.taskCount}</strong></li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            </>
+          );
+        }}
+      </Async>
+    </AppLayout>
   );
 }

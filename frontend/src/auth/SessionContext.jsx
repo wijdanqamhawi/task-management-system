@@ -15,8 +15,10 @@ export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  const refresh = useCallback(async () => {
-    setLoading(true);
+  // `silent` re-reads the user without flipping `loading`, so a screen that refreshes the
+  // session after a save (Profile) is not unmounted behind the route guard's loading state.
+  const refresh = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setLoading(true);
     try {
       setUser(await api.get('/auth/me'));
     } catch (error) {

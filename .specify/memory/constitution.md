@@ -1,50 +1,48 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 2.0.0 → 2.1.0
-Rationale: MINOR. Governance synchronization only, resolving finding D1 of the
-/speckit-analyze report of 2026-09-21. Principle II's technology list omitted Docker,
-testing/debugging, and Responsive Web Design, all of which the official project
-requirements document names. Governance requires that where this constitution conflicts
-with the official document, the official document wins and this document be amended to
-match. Existing guidance is expanded, none is removed or redefined, and no previously
-compliant work becomes non-compliant — hence MINOR, not MAJOR.
+Version change: 2.1.0 → 3.0.0
+Rationale: MAJOR. Principle II (Fixed Technology Stack) is redefined in a backward-
+incompatible way: the backend language and framework change from Java with Spring Boot /
+Spring MVC to Python with FastAPI, at the explicit direction of the project owner
+(2026-10-04). Previously compliant backend work (Java/Spring Boot) becomes non-compliant.
+Note for reviewers: the original official requirements document named Java and Spring Boot;
+this amendment records a project-owner decision to depart from it, so the owner is
+responsible for confirming the change with the course/instructor. Under Principle I the
+substitution adds no capability — it changes how the same RESTful backend is built.
 
 Modified principles:
-  - II. Fixed Technology Stack → unchanged in name and intent. Added to its prescribed
-    list: Responsive Web Design (frontend), testing and debugging, and Docker basics
-    (deployment only). Added a binding constraint that application code MUST NOT depend
-    on Docker and that the system MUST build, run, and be tested identically without it.
+  - II. Fixed Technology Stack → Backend is now Python 3.13 with FastAPI (served by
+    Uvicorn), using python-oracledb for Oracle access and python-dotenv for configuration.
+    Supporting libraries named in the plan (bcrypt, itsdangerous, python-multipart,
+    email-validator; pytest and httpx for testing) serve required functional areas and
+    replace no prescribed technology. Java, Spring Boot, Maven, JPA/Hibernate and JdbcTemplate
+    are no longer part of the stack. Frontend, Database (Oracle, SQL, PL/SQL), Git/GitHub,
+    testing, and Docker-for-deployment-only are unchanged.
+  - III. REST API as the Layer Boundary → "Java backend" reworded to "Python (FastAPI)
+    backend". Intent unchanged.
 
-Unchanged: Principles I, III, IV, V, VI, VII, VIII; Required Functional Scope;
-Development Methodology and Lifecycle; Governance. No functional requirement, project
-decision, role, workflow, notification decision, or implementation plan was touched.
+Unchanged: Principles I, IV, V, VI, VII, VIII; Required Functional Scope; Development
+Methodology and Lifecycle; Governance. The REST contract, the Oracle schema, roles, status
+workflow, and every functional requirement are untouched.
 
 Added sections: none
 Removed sections: none
 
 Templates requiring updates:
-  - .specify/templates/plan-template.md ✅ no change needed (Constitution Check gate is
-    derived dynamically from this file)
-  - .specify/templates/spec-template.md ✅ no change needed
-  - .specify/templates/tasks-template.md ✅ RESOLVED — previously flagged ⚠ pending in
-    v2.0.0 because the template orders tests before implementation while Principle VII
-    requires Development → Code Review → Testing. The concern is closed: the delivered
-    specs/001-task-management-system/tasks.md was generated to the official ordering, with
-    every user story phase structured Development → Code Review → Testing → Demo, and
-    states that departure explicitly. The template file itself is left untouched; the
-    binding artifact is tasks.md, and Principle VII governs any future generation.
-  - .specify/templates/checklist-template.md ✅ no change needed
-  - .claude/skills/speckit-*/SKILL.md ✅ no outdated agent-specific references found
+  - .specify/templates/*.md ✅ no change needed (generic; gates derived from this file)
+  - .claude/skills/speckit-*/SKILL.md ✅ no change needed (generic ignore-file hints only)
 
-Downstream artifacts re-verified against this amendment (no edits required):
-  - specs/001-task-management-system/plan.md — Constitution Check item 1 flagged exactly
-    this gap; the flag is now satisfied. Docker confined to Phase 12.
-  - specs/001-task-management-system/tasks.md — Docker appears only in T149 and T151, both
-    in the Deployment phase; no application task depends on it.
+Downstream artifacts updated for this amendment (2026-10-04):
+  - specs/001-task-management-system/{plan,research,tasks,quickstart,data-model}.md and
+    contracts/rest-api.md — Spring Boot/Java replaced by FastAPI/Python; decisions R-001,
+    R-002, R-003, R-005, R-006, R-007, R-011, R-012 restated for the new mechanism.
+  - README.md, .env.example, .gitignore, database/plsql/ (package bodies added).
 
-Follow-up TODOs: none
+Follow-up TODOs: confirm the stack change with the course/instructor (project owner).
 -->
+
+<!-- PREVIOUS AMENDMENT (2.0.0 → 2.1.0, 2026-09-21): governance synchronization only — Docker, testing/debugging and Responsive Web Design added to Principle II's list; no backend change. -->
 
 # Full Stack Task Management System Constitution
 
@@ -68,8 +66,9 @@ The stack is prescribed and MUST NOT be substituted or supplemented:
 
 - **Frontend**: HTML5, CSS3, JavaScript, React, applying Responsive Web Design and consuming
   the backend via REST API integration.
-- **Backend**: Java with Spring Boot / Spring MVC, exposing RESTful APIs, with
-  authentication and authorization.
+- **Backend**: Python 3.13 with FastAPI (served by Uvicorn), exposing RESTful APIs, with
+  authentication and authorization. Oracle is accessed with python-oracledb using raw SQL and
+  bind variables — no ORM. Configuration comes from environment variables (python-dotenv).
 - **Database**: Oracle Database, using SQL and PL/SQL.
 - **Source control**: Git, hosted on GitHub.
 - **Testing and debugging**: part of the prescribed toolset, exercised through the Testing
@@ -93,7 +92,7 @@ which would obstruct the Demo stage every cycle depends on.
 
 ### III. REST API as the Layer Boundary
 
-The React frontend and the Java backend communicate exclusively over RESTful HTTP APIs. The
+The React frontend and the Python (FastAPI) backend communicate exclusively over RESTful HTTP APIs. The
 frontend MUST NOT access the Oracle database directly. Every backend capability the
 frontend depends on MUST be exposed as a documented REST endpoint, and API documentation is
 a required deliverable that MUST be kept current with the implemented endpoints.
@@ -241,4 +240,4 @@ principles and MUST cite the principle by number when rejecting a change. Any de
 MUST be recorded in the plan's Complexity Tracking table with the reason the required
 approach was insufficient.
 
-**Version**: 2.1.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-09-21
+**Version**: 3.0.0 | **Ratified**: 2026-09-21 | **Last Amended**: 2026-10-04

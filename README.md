@@ -5,8 +5,9 @@ for the Computer Center.
 
 > **Repository status: planning, scaffolding, and environment setup.**
 > The specification, plan, and task breakdown are complete, and initial project scaffolding
-> and environment setup have been carried out. **Full feature implementation has not started**
-> and is intentionally paused for instructor review.
+> and environment setup have been carried out. The backend was re-platformed to Python / FastAPI on
+> 2026-10-04 and its implementation is written but **not yet verified against the Oracle database**;
+> frontend feature screens beyond sign-in, registration and the dashboard remain to be built.
 > See [Current Repository Status](#15-current-repository-status).
 
 ---
@@ -59,12 +60,14 @@ Management solution within the Computer Center.
 
 ### Backend
 
-- Java 21
-- Spring Boot / Spring MVC
-- RESTful APIs
+- Python 3.13
+- FastAPI (served by Uvicorn) — RESTful APIs
 - Authentication and Authorization
-- **JDBC / `JdbcTemplate`** as the data-access approach — SQL and PL/SQL are written by hand.
-  No ORM is used.
+- **python-oracledb** as the data-access approach — raw SQL with bind variables, and PL/SQL
+  packages for dashboard and notification logic. No ORM is used.
+
+> The backend was originally planned in Java / Spring Boot and was replaced by Python / FastAPI
+> at the project owner's direction on 2026-10-04 (Constitution v3.0.0).
 
 ### Database
 
@@ -83,11 +86,13 @@ Management solution within the Computer Center.
 
 These are **implementation tools chosen by the project**, not instructor-mandated technologies:
 
-- **Maven** — build and dependency management for the Java backend.
+- **pip / `requirements.txt`** — dependency management for the Python backend (FastAPI,
+  Uvicorn, python-oracledb, python-dotenv, bcrypt, itsdangerous, python-multipart,
+  email-validator; pytest and httpx for tests).
 - **Vite** — frontend build step only. It ships no runtime code; the deployed frontend is plain
   HTML, CSS, and JavaScript.
 
-> **Deliberately not used**: no ORM (JPA/Hibernate), no router library, no UI component library,
+> **Deliberately not used**: no ORM (neither JPA/Hibernate nor SQLAlchemy), no router library, no UI component library,
 > no CSS framework, no HTTP client library, no state-management library, no token library, and
 > no API-documentation generator. Each exclusion is recorded with its rationale in
 > [`research.md`](specs/001-task-management-system/research.md).
@@ -186,7 +191,7 @@ assigned to several users and a project can have several members.
 ## 10. Repository Structure
 
 ```text
-├── backend/     Java 21 + Spring Boot REST API. Source, configuration, and tests.
+├── backend/     Python 3.13 + FastAPI REST API (`app/`), tests (`tests/`), `requirements.txt`.
 ├── frontend/    React single-page application. Components, pages, styles, API modules.
 ├── database/    Hand-written SQL DDL, PL/SQL packages, seed data, and ERD source.
 │                The schema's single source of truth — nothing generates it.
@@ -215,8 +220,7 @@ The following are installed and verified on the development machine:
 
 | Component | Version | Purpose |
 |-----------|---------|---------|
-| **JDK 21** (Eclipse Temurin) | 21.0.12.1 LTS | Backend runtime and compiler |
-| **Apache Maven** | 3.9.16 | Backend build and dependency management |
+| **Python** | 3.13 (virtual environment in `backend/venv`) | Backend runtime and dependency isolation |
 | **Oracle Database Free** | 23ai — service running | Application database |
 | **SQL\*Plus** | 23.26.3.0.0 | Running DDL, PL/SQL packages, and seed scripts |
 | **Node.js / npm** | v24.13.0 / 11.6.2 | Frontend build toolchain (Vite) |
@@ -264,16 +268,18 @@ feature has been implemented.**
 What exists today:
 
 - The complete specification, plan, and 159-task breakdown, all cross-checked for consistency.
-- Project skeletons: `backend/pom.xml`, the frontend Vite/React scaffold, and the directory
-  structure for the database and documentation. These are **setup, build, and configuration
+- Project skeletons: the FastAPI backend (`backend/app/`), the frontend Vite/React scaffold, and
+  the directory structure for the database and documentation. These are **setup, build, and configuration
   skeletons only** — they contain no implemented application features.
 - Environment configuration templates and the documented Git/GitHub workflow.
 - A verified local development environment (Section 12).
 
 What does **not** exist yet:
 
-- No implemented backend features — no entities, repositories, services, or controllers. The
-  only backend files present are the Maven build file and the application configuration.
+- Backend: the FastAPI implementation of the REST contract has been written (all eight user
+  stories) together with a pytest suite, but see `docs/testing.md` for what has actually been
+  verified against Oracle. Nothing here should be read as a claim that a feature is working
+  until its tests are recorded as passing.
 - No implemented frontend features — no components, pages, or screens. The only frontend files
   present are the Vite build configuration, `package.json`, and the HTML entry point.
 - No database schema installed — the DDL and PL/SQL scripts have not yet been written or run.

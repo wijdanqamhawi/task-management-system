@@ -30,11 +30,16 @@ export function matchPath(pattern, pathname) {
 
 export function Router({ children }) {
   const [pathname, setPathname] = useState(() => window.location.pathname);
+  // The query string is tracked too, so a screen can react when only `?title=...` changes.
+  const [search, setSearch] = useState(() => window.location.search);
 
   // Browser back and forward. Without this, history navigation silently does nothing —
   // one of the three failure modes R-013 accepted when dropping React Router.
   useEffect(() => {
-    const onPopState = () => setPathname(window.location.pathname);
+    const onPopState = () => {
+      setPathname(window.location.pathname);
+      setSearch(window.location.search);
+    };
     window.addEventListener('popstate', onPopState);
     return () => window.removeEventListener('popstate', onPopState);
   }, []);
@@ -48,10 +53,11 @@ export function Router({ children }) {
     if (replace) window.history.replaceState({}, '', to);
     else window.history.pushState({}, '', to);
     setPathname(path);
+    setSearch(window.location.search);   // already updated by pushState/replaceState above
     window.scrollTo(0, 0);   // otherwise scroll position leaks between screens
   }, []);
 
-  const value = useMemo(() => ({ pathname, navigate }), [pathname, navigate]);
+  const value = useMemo(() => ({ pathname, search, navigate }), [pathname, search, navigate]);
   return <RouterContext.Provider value={value}>{children}</RouterContext.Provider>;
 }
 

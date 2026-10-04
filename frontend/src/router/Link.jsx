@@ -7,11 +7,14 @@
  */
 import { useRouter } from './Router.jsx';
 
-export function Link({ to, className, children, ...rest }) {
+export function Link({ to, className, children, onClick: callerOnClick, ...rest }) {
   const { pathname, navigate } = useRouter();
   const active = pathname === to || (to !== '/' && pathname.startsWith(`${to}/`));
 
   const onClick = (event) => {
+    // A caller's onClick (e.g. closing a menu) runs first. It must NOT replace this handler:
+    // spreading it after ours silently turned the link into a full page load.
+    callerOnClick?.(event);
     if (event.defaultPrevented) return;
     if (event.button !== 0) return;                                   // not a left click
     if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return; // new tab

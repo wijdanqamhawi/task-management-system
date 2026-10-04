@@ -2,7 +2,7 @@
 
 **Feature**: `001-task-management-system` | **Date**: 2026-09-21 | **Plan**: [plan.md](./plan.md)
 
-This is the contract between the React frontend and the Spring Boot backend. Constitution
+This is the contract between the React frontend and the Python (FastAPI) backend. Constitution
 Principle III makes it the **only** boundary between them: the frontend never reaches the
 database, and every backend capability the frontend uses appears here. This file is the source
 for required deliverable 12 (API documentation, published as `docs/api.md`).
@@ -13,7 +13,7 @@ for required deliverable 12 (API documentation, published as `docs/api.md`).
 - **Format**: JSON request and response bodies; `UTF-8`; `Content-Type: application/json`
   (except attachment upload, which is `multipart/form-data`, and download, which returns the
   file).
-- **Authentication**: session cookie (`JSESSIONID`), established by `POST /api/auth/login`
+- **Authentication**: session cookie (`tms_session`, signed, `HttpOnly`, `SameSite=Lax`), established by `POST /api/auth/login`
   (R-002). Every endpoint except `POST /api/auth/register` and `POST /api/auth/login` requires
   an authenticated, **active** user.
 - **Authorization**: enforced server-side on every endpoint (FR-005, Constitution V). The
@@ -83,10 +83,13 @@ All non-2xx responses share one shape:
   "password": "••••••••", "fullName": "A. Hassan" }
 ```
 
+`username` is optional: when omitted (as the frontend's registration form does) it is derived
+from the email's local part and made unique. `password` must be 8 to 72 bytes.
 Returns the created user without `password`. `409` if username or email is taken. New accounts
 receive the `MEMBER` role and `isActive: true` **[CLARIFIED, FR-008]**.
 
-**`POST /api/auth/login`** → `200` with the user body and a `Set-Cookie` session header.
+**`POST /api/auth/login`** body `{ "email": "...", "password": "..." }` (`username` is accepted
+in place of `email`) → `200` with the user body and a `Set-Cookie` session header.
 `401` on bad credentials **and** on a deactivated account, with the same message either way
 (US1 scenario 2: never reveal which credential was wrong; FR-007).
 
@@ -134,8 +137,9 @@ Deactivation invalidates the user's active sessions immediately, so their next r
 
 `400` if `endDate < startDate` (US2 scenario 5).
 
-Removing a member also removes their task assignments within that project and returns a
-summary of what was unassigned — the edge case recorded in `spec.md` (a task must not stay
+Removing a member (`DELETE .../members/{userId}`, `200`) also removes their task assignments within
+that project and returns `{ projectId, userId, removedAssignments, unassignedTasks: [{taskId, title}] }`,
+a summary of what was unassigned — the edge case recorded in `spec.md` (a task must not stay
 assigned to someone who can no longer see its project).
 
 ---
@@ -277,6 +281,17 @@ A notification body carries `triggerType` (one of the five official triggers), `
 another user's returns `404` (FR-061).
 
 ---
+
+## Implementation notes (FastAPI backend)
+
+- `POST /api/projects/{id}/members` takes `{ "userId": 3 }` and returns `201` with the member.
+- `POST /api/tasks/{id}/assignees` takes `{ "userIds": [3, 7] }` and returns `200` with the task.
+- Task and project JSON use camelCase keys; a task carries `assignees: [{userId, fullName}]`.
+- `GET /api/tasks/assigned-to-me` and `/shared-with-me` accept the same filters and paging as
+  `GET /api/tasks`.
+- Validation failures use the error body above, with `fieldErrors` keyed by camelCase field name.
+- A user's own role cannot be changed, and a project member who is an Admin is not required:
+  an Admin sees every project and task without being a member.
 
 ## Coverage check
 

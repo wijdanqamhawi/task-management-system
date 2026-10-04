@@ -13,8 +13,7 @@ and [`data-model.md`](./data-model.md) for entity rules rather than repeating th
 
 | Requirement | Version | Why |
 |-------------|---------|-----|
-| JDK | 21 (LTS) | Backend |
-| Maven | 3.9+ | Backend build (or the bundled `mvnw`) |
+| Python | 3.13 | Backend (FastAPI + Uvicorn) |
 | Node.js | 20 LTS+ | Frontend build only (Vite) — not a runtime dependency; the deployed frontend is plain HTML/CSS/JS |
 | Oracle Database | 19c / 21c / XE | Required database **[OFFICIAL]** |
 | Git | any recent | **[OFFICIAL]** |
@@ -45,21 +44,29 @@ Verify: `SELECT status_code FROM task_status ORDER BY sort_order;` must return e
 
 ### 2. Backend
 
-Configuration comes from environment variables; no credential is committed.
+Configuration comes from environment variables, loaded from a gitignored `backend/.env`
+(copy `.env.example`); no credential is committed.
 
 ```bash
-export TMS_DB_URL=jdbc:oracle:thin:@//localhost:1521/XEPDB1
-export TMS_DB_USER=tms_user
-export TMS_DB_PASSWORD=<password>
-export TMS_ATTACHMENT_DIR=/var/tms/attachments
-
 cd backend
-./mvnw spring-boot:run
+python -m venv venv                  # once
+venv\Scripts\activate               # Windows (use `source venv/bin/activate` elsewhere)
+pip install -r requirements.txt      # once
+
+# backend/.env
+#   TMS_DB_USER=tms_user
+#   TMS_DB_PASSWORD=<password>
+#   TMS_DB_DSN=localhost:1521/FREEPDB1
+#   TMS_SESSION_SECRET=<long random string>
+#   TMS_ATTACHMENT_DIR=./attachments
+
+uvicorn app.main:app --port 8080
 ```
 
 Backend starts on `http://localhost:8080`. There is no ORM and no schema generation: the
-application reads and writes the hand-written schema through `JdbcTemplate` (R-001). A column
-that does not match its SQL fails at query time with a plain Oracle error naming the column.
+application reads and writes the hand-written schema with raw SQL through python-oracledb
+(R-001). A column that does not match its SQL fails at query time with a plain Oracle error
+naming the column.
 
 Verify: `curl -i http://localhost:8080/api/auth/me` → `401` (not yet authenticated).
 
@@ -204,8 +211,8 @@ the one whose failure is invisible in normal use. Record the full matrix in `doc
 
 ```bash
 cd backend
-./mvnw test                      # unit + integration + contract tests
-./mvnw test -Dtest=*ContractTest # REST contract tests alone
+venv\Scripts\python -m pytest              # unit + integration + contract tests
+venv\Scripts\python -m pytest tests/test_unit.py   # the no-database unit tests alone
 ```
 
 Backend tests run against a real Oracle schema (R-011). Frontend validation is the documented
@@ -217,8 +224,10 @@ in `research.md` R-011.
 | Symptom | Likely cause |
 |---------|--------------|
 | A query fails with `ORA-00904: invalid identifier` | The DDL and a repository's SQL disagree — fix whichever is wrong; the DDL is the source of truth (R-001) |
-| Every request returns `401` after logging in | Session cookie blocked — check the dev proxy is forwarding cookies |
-| Dashboard figures all zero | `PKG_DASHBOARD` not installed, or reference data not seeded |
+| Every request returns `401` after logging in | Session cookie blocked, or `TMS_SESSION_SECRET` changed since login — check the dev proxy is forwarding cookies |
+| `ORA-01017` when the backend starts or a test runs | `TMS_DB_USER` / `TMS_DB_PASSWORD` / `TMS_DB_DSN` in `backend/.env` do not match the database |
+| Dashboard returns `503` "PKG_DASHBOARD is not installed" | The package body is missing: run `database/plsql/run_all.sql` (bodies are `pkg_dashboard.pkb` / `pkg_notification.pkb`) |
+| Dashboard figures all zero | Reference data not seeded |
 | Status change returns `400` for a valid status | `TASK_STATUS` reference rows missing or misspelled |
 | Attachment upload fails | `TMS_ATTACHMENT_DIR` unset or not writable |
 | Deadline notifications never appear | Scheduled job disabled, or no task sits within the 24-hour window |

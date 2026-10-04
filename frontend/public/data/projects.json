@@ -1,6 +1,0 @@
-[
-  { "id": "p1", "name": "Website Redesign",  "status": "IN_PROGRESS", "progress": 68 },
-  { "id": "p2", "name": "Mobile App Launch", "status": "IN_PROGRESS", "progress": 42 },
-  { "id": "p3", "name": "Internal Wiki",     "status": "REVIEW",      "progress": 90 },
-  { "id": "p4", "name": "Data Migration",    "status": "TO_DO",       "progress": 8 }
-]

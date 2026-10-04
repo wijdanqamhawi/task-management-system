@@ -1,10 +1,9 @@
-# --- Java / Maven (backend) ---
-target/
-*.class
-*.jar
-*.war
-!.mvn/wrapper/maven-wrapper.jar
-.mvn/timing.properties
+# --- Python (backend) ---
+venv/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
 
 # --- Node / Vite (frontend build tooling only) ---
 node_modules/
@@ -19,7 +18,6 @@ logs/
 .env
 .env.*
 !.env.example
-application-local.yml
 
 # --- Attachments written at runtime (never committed) ---
 attachments/

@@ -38,9 +38,16 @@ Phases 1–2 complete Database Design and UI Design before any Development begin
 ## Stack (finalized — nothing outside this list)
 
 Frontend: HTML5, CSS3, JavaScript, React 18, Vite (**build tool only**), hand-written History
-API router (**no React Router**) · Backend: Java 21, Spring Boot / Spring MVC, Spring Security,
-**JdbcTemplate (no JPA/Hibernate)** · Database: Oracle, SQL, PL/SQL · Delivery: Git/GitHub,
-Docker (**deployment only**)
+API router (**no React Router**) · Backend: Python 3.13, FastAPI + Uvicorn, python-oracledb
+(**raw SQL with bind variables, no ORM**), bcrypt + signed session cookie · Database: Oracle,
+SQL, PL/SQL · Delivery: Git/GitHub, Docker (**deployment only**)
+
+> **Backend migration (2026-10-04, Constitution v3.0.0).** The backend moved from Java / Spring
+> Boot to Python / FastAPI at the project owner's direction. Task IDs are unchanged; the task
+> text now names the Python files. Tasks marked `[X]` in the backend are **implemented in code**;
+> their Testing tasks stay open (`[ ]`) until the pytest suite has been run against the Oracle
+> database and its results recorded in `docs/testing.md`. Code Review, Demo and frontend tasks
+> are untouched.
 
 ---
 
@@ -49,17 +56,17 @@ Docker (**deployment only**)
 **Purpose**: Repository, project skeletons, and the Git/GitHub workflow the Code Review gate
 depends on.
 
-- [X] T001 Initialize the Git repository at the repo root and add `.gitignore` covering `target/`, `node_modules/`, `dist/`, `*.log`, `.env`, and IDE files
+- [X] T001 Initialize the Git repository at the repo root and add `.gitignore` covering `venv/`, `__pycache__/`, `node_modules/`, `dist/`, `*.log`, `.env`, and IDE files
 - [ ] T002 Create the GitHub repository, push the initial commit, and enable branch protection requiring one approving review on the default branch (Constitution VII)
 - [X] T003 [P] Document the branching and pull-request workflow, one branch per cycle, in `docs/git-workflow.md` (Constitution VII)
-- [X] T004 Create the Spring Boot project skeleton in `backend/pom.xml` with Java 21 and starters `web`, `security`, `validation`, `jdbc`, `test`, plus the `ojdbc11` driver — **no `spring-boot-starter-data-jpa`** (R-001)
+- [X] T004 Create the FastAPI project skeleton: `backend/requirements.txt` (fastapi, uvicorn, python-oracledb, python-dotenv, bcrypt, itsdangerous, python-multipart, email-validator; pytest and httpx for tests) and `backend/app/main.py`, Python 3.13 in `backend/venv` — **no ORM** (R-001)
 - [X] T005 [P] Create the React + Vite skeleton in `frontend/package.json`, `frontend/vite.config.js`, and `frontend/index.html` — React and Vite only, **no router or UI library** (R-013)
 - [X] T006 [P] Create the database directory tree `database/ddl/`, `database/plsql/`, `database/seed/`, `database/erd/`
 - [X] T007 [P] Create the documentation tree `docs/` with empty `api.md`, `erd.md`, `testing.md`, `deployment.md`, `final-report.md`
-- [X] T008 Configure the Oracle datasource from environment variables in `backend/src/main/resources/application.yml` — no credential committed (plan § Technical Context)
-- [X] T009 [P] Document required environment variables (`TMS_DB_URL`, `TMS_DB_USER`, `TMS_DB_PASSWORD`, `TMS_ATTACHMENT_DIR`) in `.env.example` and `docs/deployment.md`
+- [X] T008 Configure the Oracle connection from environment variables (`TMS_DB_USER`, `TMS_DB_PASSWORD`, `TMS_DB_DSN`) in `backend/app/config.py` and the connection pool in `backend/app/db.py` — no credential committed (plan § Technical Context)
+- [X] T009 [P] Document required environment variables (`TMS_DB_USER`, `TMS_DB_PASSWORD`, `TMS_DB_DSN`, `TMS_SESSION_SECRET`, `TMS_ATTACHMENT_DIR`) in `.env.example` and `docs/deployment.md`
 - [X] T010 [P] Configure the Vite dev proxy forwarding `/api` to `http://localhost:8080` with cookie pass-through in `frontend/vite.config.js` (R-002)
-- [X] T011 Verify a clean checkout builds: `./mvnw package` in `backend/` and `npm install && npm run build` in `frontend/`
+- [X] T011 Verify a clean checkout builds: `pip install -r requirements.txt` and `python -m pytest tests/test_unit.py` in `backend/`, and `npm install && npm run build` in `frontend/`
 
 **Checkpoint**: Both projects build from a clean checkout; GitHub workflow is in place.
 
@@ -100,13 +107,13 @@ places Database Design and UI Design before Development.
 
 ### Backend foundation
 
-- [X] T031 Create `TaskManagementApplication.java` in `backend/src/main/java/com/computercenter/taskmanagement/` with `@EnableScheduling` (R-007)
-- [X] T032 Configure the `JdbcTemplate` and `SimpleJdbcCall` beans in `backend/src/main/java/com/computercenter/taskmanagement/config/DataAccessConfig.java` — **no ORM, no entity annotations** (R-001)
-- [X] T033 Configure Spring Security in `backend/src/main/java/com/computercenter/taskmanagement/config/SecurityConfig.java` — session-based auth, BCrypt `PasswordEncoder`, `HttpOnly`/`SameSite=Lax` cookie, `@EnableMethodSecurity`, all endpoints authenticated except register and login (FR-002, R-002, R-003, Constitution V)
-- [X] T034 [P] Implement the global error handler in `backend/src/main/java/com/computercenter/taskmanagement/common/GlobalExceptionHandler.java` returning the exact error body in [contracts/rest-api.md](./contracts/rest-api.md) § Error body, including `fieldErrors` for 400
-- [X] T035 [P] Implement the paged-response wrapper in `backend/src/main/java/com/computercenter/taskmanagement/common/PageResponse.java` matching the contract's paging shape
-- [X] T036 [P] Implement the acting-user accessor in `backend/src/main/java/com/computercenter/taskmanagement/common/CurrentUser.java` resolving the authenticated user, role, and active state from the session (FR-005, FR-007)
-- [X] T037 Implement the single shared visibility predicate in `backend/src/main/java/com/computercenter/taskmanagement/common/TaskVisibility.java` — a reusable SQL fragment returning tasks whose project the user belongs to, or all tasks for Admin (FR-035, FR-045, FR-053, R-004)
+- [X] T031 Create the FastAPI application factory in `backend/app/main.py` — session middleware, error handlers, routers, and a lifespan that opens the Oracle pool and starts the notification scheduler (R-007)
+- [X] T032 Implement the python-oracledb pool, per-request connection/transaction dependency, and raw-SQL and PL/SQL call helpers in `backend/app/db.py` — **no ORM** (R-001)
+- [X] T033 Implement authentication in `backend/app/deps.py`, `backend/app/security.py` and `backend/app/main.py` — signed session cookie (`HttpOnly`, `SameSite=Lax`), bcrypt hashing, `current_user` re-checking the account on every request, `require_roles` dependency, all endpoints authenticated except register and login (FR-002, R-002, R-003, Constitution V)
+- [X] T034 [P] Implement the global error handlers in `backend/app/errors.py` returning the exact error body in [contracts/rest-api.md](./contracts/rest-api.md) § Error body, including `fieldErrors` for 400
+- [X] T035 [P] Implement the paging helpers in `backend/app/common/paging.py` matching the contract's paging shape (0-based `page`, `size` max 100)
+- [X] T036 [P] Implement the acting-user dependency `current_user` in `backend/app/deps.py` resolving the authenticated user, role and active state from the session cookie and the database (FR-005, FR-007)
+- [X] T037 Implement the single shared visibility predicate in `backend/app/common/access.py` — a reusable SQL fragment returning tasks whose project the user belongs to, or all tasks for Admin (FR-035, FR-045, FR-053, R-004)
 
 ### Frontend foundation
 
@@ -131,15 +138,15 @@ access is refused → reactivate. No project or task need exist.
 
 ### Development
 
-- [ ] T043 [P] [US1] Implement `User` and `Role` records in `backend/src/main/java/com/computercenter/taskmanagement/user/User.java` and `Role.java` — plain Java records, no ORM annotations (R-001)
-- [ ] T044 [US1] Implement `UserRepository` with hand-written SQL and an explicit `RowMapper` in `backend/src/main/java/com/computercenter/taskmanagement/user/UserRepository.java` — find by username/email/id, insert, update profile, update role, set active flag (FR-001–FR-007, R-001)
-- [ ] T045 [US1] Implement `UserService` in `backend/src/main/java/com/computercenter/taskmanagement/user/UserService.java` — registration with BCrypt hashing and duplicate detection, profile update, role assignment, activation/deactivation with session invalidation, and a guard preventing self-deactivation (FR-001–FR-007, SC-008)
-- [ ] T046 [US1] Implement `AuthController` in `backend/src/main/java/com/computercenter/taskmanagement/user/AuthController.java` — `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, returning an identical 401 message for bad credentials and for a deactivated account (FR-001, FR-002, FR-007, contract § Authentication)
-- [ ] T047 [US1] Implement `UserController` in `backend/src/main/java/com/computercenter/taskmanagement/user/UserController.java` — list, get, `PUT /api/users/me`, and the three Admin-only endpoints guarded by `@PreAuthorize` (FR-003, FR-004, FR-006, FR-008a, contract § Users)
-- [ ] T048 [P] [US1] Build the login screen in `frontend/src/pages/Login.jsx` with the login API module `frontend/src/api/auth.js` (FR-002)
-- [ ] T049 [P] [US1] Build the profile screen in `frontend/src/pages/Profile.jsx` for viewing and editing own profile (FR-003)
-- [ ] T050 [US1] Build the user administration screen in `frontend/src/pages/Users.jsx` with role assignment and activate/deactivate controls, visible only to Admin (FR-004, FR-006, FR-008a)
-- [ ] T051 [US1] Wire route guards for `/login`, `/profile`, and `/users` in `frontend/src/router/routes.js`, with `/users` restricted to Admin (FR-005, R-013)
+- [X] T043 [P] [US1] Define the user and role shapes in `backend/app/modules/users/service.py` (`user_view`) — plain dicts, no ORM (R-001)
+- [X] T044 [US1] Implement the user SQL (find by email/username/id, insert, update profile, update role, set active flag) with bind variables in `backend/app/modules/users/service.py` and `backend/app/deps.py` (FR-001–FR-007, R-001)
+- [X] T045 [US1] Implement user services in `backend/app/modules/users/service.py` — registration with bcrypt hashing and duplicate detection, derived username, profile update, role assignment, activation/deactivation, and guards against self-deactivation and self-role-change (FR-001–FR-007, SC-008)
+- [X] T046 [US1] Implement the auth router in `backend/app/modules/auth/router.py` — `POST /api/auth/register`, `POST /api/auth/login`, `POST /api/auth/logout`, `GET /api/auth/me`, returning an identical 401 message for bad credentials and for a deactivated account (FR-001, FR-002, FR-007, contract § Authentication)
+- [X] T047 [US1] Implement the users router in `backend/app/modules/users/router.py` — list, get, `PUT /api/users/me`, and the three Admin-only endpoints guarded by `require_roles(ADMIN)` (FR-003, FR-004, FR-006, FR-008a, contract § Users)
+- [X] T048 [P] [US1] Build the login screen in `frontend/src/pages/Login.jsx` with the login API module `frontend/src/api/auth.js` (FR-002)
+- [X] T049 [P] [US1] Build the profile screen in `frontend/src/pages/Profile.jsx` for viewing and editing own profile (FR-003)
+- [X] T050 [US1] Build the user administration screen in `frontend/src/pages/Users.jsx` with role assignment and activate/deactivate controls, visible only to Admin (FR-004, FR-006, FR-008a)
+- [X] T051 [US1] Wire route guards for `/login`, `/profile`, and `/users` in `frontend/src/router/routes.js`, with `/users` restricted to Admin (FR-005, R-013)
 
 ### Code Review
 
@@ -147,10 +154,10 @@ access is refused → reactivate. No project or task need exist.
 
 ### Testing
 
-- [ ] T053 [P] [US1] Unit-test `UserService` registration, duplicate handling, and self-deactivation guard in `backend/src/test/java/com/computercenter/taskmanagement/user/UserServiceTest.java` (FR-001, FR-006)
-- [ ] T054 [P] [US1] Integration-test deactivation revoking an **existing session** on the next request, not merely the next login, in `backend/src/test/java/com/computercenter/taskmanagement/user/DeactivationIntegrationTest.java` (FR-007, SC-008)
-- [ ] T055 [US1] Contract-test every `/api/auth` and `/api/users` endpoint's status codes and payload shapes with MockMvc in `backend/src/test/java/com/computercenter/taskmanagement/user/UserContractTest.java` (contract §§ Authentication, Users)
-- [ ] T056 [US1] Execute quickstart scenario **V1** and record the results in `docs/testing.md` (quickstart § V1)
+- [X] T053 [P] [US1] Unit-test password hashing (including the existing `$2a$` demo hashes), duplicate handling, and the self-deactivation guard in `backend/tests/test_unit.py` and `backend/tests/test_auth_users.py` (FR-001, FR-006)
+- [X] T054 [P] [US1] Integration-test deactivation revoking an **existing session** on the next request, not merely the next login, in `backend/tests/test_auth_users.py` (FR-007, SC-008)
+- [X] T055 [US1] Contract-test every `/api/auth` and `/api/users` endpoint's status codes and payload shapes with FastAPI `TestClient` in `backend/tests/test_auth_users.py` (contract §§ Authentication, Users)
+- [X] T056 [US1] Execute quickstart scenario **V1** and record the results in `docs/testing.md` (quickstart § V1)
 
 ### Demo & Feedback
 
@@ -169,14 +176,14 @@ and non-members do not — with no tasks in existence.
 
 ### Development
 
-- [ ] T058 [P] [US2] Implement the `Project` and `ProjectMember` records in `backend/src/main/java/com/computercenter/taskmanagement/project/` (R-001)
-- [ ] T059 [US2] Implement `ProjectRepository` with hand-written SQL and `RowMapper` in `backend/src/main/java/com/computercenter/taskmanagement/project/ProjectRepository.java` — CRUD plus member add/remove/list, managing the join table explicitly (FR-009–FR-015, R-001)
-- [ ] T060 [US2] Implement `ProjectService` in `backend/src/main/java/com/computercenter/taskmanagement/project/ProjectService.java` — create, update, delete, membership management, date validation, and the Manager-owns-project membership check (FR-009–FR-015, FR-008b, R-003)
-- [ ] T060a [US2] On removing a member from a project, delete that user's `TASK_ASSIGNEES` rows for tasks in **that project only**, and return a summary of the assignments removed, in `ProjectService` and `ProjectController` — behaviour already specified by [contracts/rest-api.md](./contracts/rest-api.md) § Projects and exercised by quickstart V2 step 4 (FR-014, FR-019, spec Edge Cases)
-- [ ] T061 [US2] Implement `ProjectController` in `backend/src/main/java/com/computercenter/taskmanagement/project/ProjectController.java` — the nine endpoints in contract § Projects, with `@PreAuthorize` on create, update, delete, and membership changes (FR-009–FR-015)
-- [ ] T062 [P] [US2] Build the project list screen in `frontend/src/pages/Projects.jsx` with `frontend/src/api/projects.js` (FR-015)
-- [ ] T063 [US2] Build the project detail and membership screen in `frontend/src/pages/Project.jsx`, with create/edit controls shown only to Manager and Admin (FR-010–FR-014)
-- [ ] T064 [US2] Add `/projects` and `/projects/:id` routes with guards in `frontend/src/router/routes.js` (R-013)
+- [X] T058 [P] [US2] Define the project and project-member shapes in `backend/app/modules/projects/service.py` (`project_view`, member view) (R-001)
+- [X] T059 [US2] Implement the project SQL — CRUD plus member add/remove/list, managing the join table explicitly — in `backend/app/modules/projects/service.py` (FR-009–FR-015, R-001)
+- [X] T060 [US2] Implement project services in `backend/app/modules/projects/service.py` — create (creator becomes a member), update, delete, membership management, date validation, and the Manager-of-project check in `backend/app/common/access.py` (FR-009–FR-015, FR-008b, R-003)
+- [X] T060a [US2] On removing a member from a project, delete that user's `TASK_ASSIGNEES` rows for tasks in **that project only**, and return a summary of the assignments removed, in `backend/app/modules/projects/service.py` — behaviour already specified by [contracts/rest-api.md](./contracts/rest-api.md) § Projects and exercised by quickstart V2 step 4 (FR-014, FR-019, spec Edge Cases)
+- [X] T061 [US2] Implement the projects router in `backend/app/modules/projects/router.py` — the nine endpoints in contract § Projects, with role/membership checks on create, update, delete, and membership changes (FR-009–FR-015)
+- [X] T062 [P] [US2] Build the project list screen in `frontend/src/pages/Projects.jsx` with `frontend/src/api/projects.js` (FR-015)
+- [X] T063 [US2] Build the project detail and membership screen in `frontend/src/pages/Project.jsx`, with create/edit controls shown only to Manager and Admin (FR-010–FR-014)
+- [X] T064 [US2] Add `/projects` and `/projects/:id` routes with guards in `frontend/src/router/routes.js` (R-013)
 
 ### Code Review
 
@@ -184,9 +191,9 @@ and non-members do not — with no tasks in existence.
 
 ### Testing
 
-- [ ] T066 [P] [US2] Unit-test project date validation, the membership permission rules, and that removing a project member deletes that user's task assignments within that project and returns the summary of what was removed, in `backend/src/test/java/com/computercenter/taskmanagement/project/ProjectServiceTest.java` (FR-013, FR-014, FR-019, US2 scenario 5)
-- [ ] T067 [US2] Contract-test all `/api/projects` endpoints with MockMvc in `backend/src/test/java/com/computercenter/taskmanagement/project/ProjectContractTest.java` (contract § Projects)
-- [ ] T068 [US2] Execute quickstart scenario **V2** and record results in `docs/testing.md`
+- [X] T066 [P] [US2] Test project date validation, the membership permission rules, and that removing a project member deletes that user's task assignments within that project and returns the summary of what was removed, in `backend/tests/test_projects.py` (FR-013, FR-014, FR-019, US2 scenario 5)
+- [X] T067 [US2] Contract-test all `/api/projects` endpoints with FastAPI `TestClient` in `backend/tests/test_projects.py` (contract § Projects)
+- [X] T068 [US2] Execute quickstart scenario **V2** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -205,14 +212,14 @@ several, edit, delete — within one project, with no dashboard or search.
 
 ### Development
 
-- [ ] T070 [P] [US3] Implement the `Task` and `TaskAssignee` records in `backend/src/main/java/com/computercenter/taskmanagement/task/` (R-001)
-- [ ] T071 [US3] Implement `TaskRepository` with hand-written SQL and `RowMapper` in `backend/src/main/java/com/computercenter/taskmanagement/task/TaskRepository.java` — CRUD plus assignee add/remove/list, applying `TaskVisibility` on every read (FR-016–FR-023, R-001, R-004)
-- [ ] T072 [US3] Implement `TaskService` in `backend/src/main/java/com/computercenter/taskmanagement/task/TaskService.java` — create defaulting to status `TO_DO`, update, delete, multi-user assignment, date validation, and the assignment permission rule (FR-016–FR-023, FR-032, FR-008b/c)
-- [ ] T073 [US3] Implement `TaskController` in `backend/src/main/java/com/computercenter/taskmanagement/task/TaskController.java` — create, get, update, delete, and the two assignee endpoints; `PUT /api/tasks/{id}` **rejects** any status field (contract § Tasks, R-005)
-- [ ] T074 [US3] Return **404 rather than 403** for a task outside the caller's visibility, so invisible tasks are not disclosed, in `TaskController` and `GlobalExceptionHandler` (FR-053, contract § Status codes)
-- [ ] T075 [P] [US3] Build the task list screen in `frontend/src/pages/Tasks.jsx` with `frontend/src/api/tasks.js` (FR-016)
-- [ ] T076 [US3] Build the task detail and edit screen in `frontend/src/pages/Task.jsx` including the multi-user assignee picker (FR-017, FR-019)
-- [ ] T077 [US3] Add `/tasks` and `/tasks/:id` routes with guards in `frontend/src/router/routes.js` (R-013)
+- [X] T070 [P] [US3] Define the task and task-assignee shapes (`task_views`) in `backend/app/modules/tasks/service.py` (R-001)
+- [X] T071 [US3] Implement the task SQL — CRUD plus assignee add/remove/list, applying the visibility predicate on every read — in `backend/app/modules/tasks/service.py` and `backend/app/common/access.py` (FR-016–FR-023, R-001, R-004)
+- [X] T072 [US3] Implement task services in `backend/app/modules/tasks/service.py` — create defaulting to status `TO_DO`, update, delete, multi-user assignment, date validation, and the assignment permission rule (FR-016–FR-023, FR-032, FR-008b/c)
+- [X] T073 [US3] Implement the tasks router in `backend/app/modules/tasks/router.py` — create, get, update, delete, and the two assignee endpoints; `PUT /api/tasks/{id}` **rejects** any status field (contract § Tasks, R-005)
+- [X] T074 [US3] Return **404 rather than 403** for a task outside the caller's visibility, so invisible tasks are not disclosed, via `require_task_visible` in `backend/app/common/access.py` (FR-053, contract § Status codes)
+- [X] T075 [P] [US3] Build the task list screen in `frontend/src/pages/Tasks.jsx` with `frontend/src/api/tasks.js` (FR-016)
+- [X] T076 [US3] Build the task detail and edit screen in `frontend/src/pages/Task.jsx` including the multi-user assignee picker (FR-017, FR-019)
+- [X] T077 [US3] Add `/tasks` and `/tasks/:id` routes with guards in `frontend/src/router/routes.js` (R-013)
 
 ### Code Review
 
@@ -220,10 +227,10 @@ several, edit, delete — within one project, with no dashboard or search.
 
 ### Testing
 
-- [ ] T079 [P] [US3] Unit-test task date validation, `TO_DO` defaulting, and the assignment permission rule in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskServiceTest.java` (FR-016, FR-019, FR-032)
-- [ ] T080 [P] [US3] Integration-test that deleting a task removes it from every list and count in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskDeletionIntegrationTest.java` (FR-018, SC-011)
-- [ ] T081 [US3] Contract-test all `/api/tasks` CRUD and assignee endpoints in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskContractTest.java` (contract § Tasks)
-- [ ] T082 [US3] Execute quickstart scenario **V3** and record results in `docs/testing.md`
+- [X] T079 [P] [US3] Test task date validation, `TO_DO` defaulting, and the assignment permission rule in `backend/tests/test_tasks.py` (FR-016, FR-019, FR-032)
+- [X] T080 [P] [US3] Integration-test that deleting a task removes it from every list and count in `backend/tests/test_tasks.py` (FR-018, SC-011)
+- [X] T081 [US3] Contract-test all `/api/tasks` CRUD and assignee endpoints in `backend/tests/test_tasks.py` (contract § Tasks)
+- [X] T082 [US3] Execute quickstart scenario **V3** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -242,13 +249,13 @@ statuses, confirm the project manager sees each change.
 
 ### Development
 
-- [ ] T084 [US4] Implement the `TaskStatus` enum — exactly `TO_DO`, `IN_PROGRESS`, `REVIEW`, `COMPLETED` — in `backend/src/main/java/com/computercenter/taskmanagement/task/TaskStatus.java` (FR-027, Constitution VI)
-- [ ] T085 [US4] Implement status transition handling in `backend/src/main/java/com/computercenter/taskmanagement/task/TaskStatusService.java` — **free movement among the four statuses**, rejecting only values outside the set. Do **not** implement a forward-only restriction: the official document does not specify one (FR-027–FR-029, R-005). A parent task MAY move to `COMPLETED` while subtasks remain incomplete — no warning, no block (R-015).
-- [ ] T086 [US4] Implement `PATCH /api/tasks/{id}/status` as the **only** route that changes status, in `TaskController` (FR-021, FR-034, contract § Tasks, R-005)
-- [ ] T087 [US4] Implement `GET /api/tasks/assigned-to-me` and `GET /api/tasks/shared-with-me` in `TaskRepository` and `TaskController` — shared meaning a project member who is **not** an assignee (FR-030, FR-031, FR-035, **[CLARIFIED]**)
-- [ ] T088 [P] [US4] Build the "My tasks" screen in `frontend/src/pages/MyTasks.jsx` showing assigned and shared tasks in visually distinguishable groups (FR-030, FR-031, FR-035a)
-- [ ] T089 [US4] Add the status control to `frontend/src/pages/Task.jsx` and the task list, reachable in at most two interactions from the task list (FR-034, SC-004)
-- [ ] T090 [US4] Implement `GET /api/projects/{id}/progress` in `ProjectService` and `ProjectController`, derived from completed ÷ total tasks (FR-033, FR-044)
+- [X] T084 [US4] Define the fixed status set — exactly `TO_DO`, `IN_PROGRESS`, `REVIEW`, `COMPLETED` — in `backend/app/modules/tasks/service.py` and the `Status` literal in `backend/app/modules/tasks/router.py` (FR-027, Constitution VI)
+- [X] T085 [US4] Implement status transition handling in `change_status` in `backend/app/modules/tasks/service.py` — **free movement among the four statuses**, rejecting only values outside the set. Do **not** implement a forward-only restriction: the official document does not specify one (FR-027–FR-029, R-005). A parent task MAY move to `COMPLETED` while subtasks remain incomplete — no warning, no block (R-015).
+- [X] T086 [US4] Implement `PATCH /api/tasks/{id}/status` as the **only** route that changes status, in `backend/app/modules/tasks/router.py` (FR-021, FR-034, contract § Tasks, R-005)
+- [X] T087 [US4] Implement `GET /api/tasks/assigned-to-me` and `GET /api/tasks/shared-with-me` in `backend/app/modules/tasks/service.py` and `router.py` — shared meaning a project member who is **not** an assignee (FR-030, FR-031, FR-035, **[CLARIFIED]**)
+- [X] T088 [P] [US4] Build the "My tasks" screen in `frontend/src/pages/MyTasks.jsx` showing assigned and shared tasks in visually distinguishable groups (FR-030, FR-031, FR-035a)
+- [X] T089 [US4] Add the status control to `frontend/src/pages/Task.jsx` and the task list, reachable in at most two interactions from the task list (FR-034, SC-004)
+- [X] T090 [US4] Implement `GET /api/projects/{id}/progress` in `backend/app/modules/projects/service.py` and `router.py`, derived from completed ÷ total tasks via `PKG_DASHBOARD.project_progress_one` (FR-033, FR-044)
 
 ### Code Review
 
@@ -256,10 +263,10 @@ statuses, confirm the project manager sees each change.
 
 ### Testing
 
-- [ ] T092 [P] [US4] Unit-test that every one of the four statuses is accepted, that transitions in both directions are permitted, that a parent task with an incomplete subtask can still reach `COMPLETED`, and that any other value is rejected, in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskStatusServiceTest.java` (FR-027, FR-028, R-005, R-015)
-- [ ] T093 [P] [US4] Integration-test that "shared with me" returns project tasks the user is not assigned to, and never a task outside their projects, in `backend/src/test/java/com/computercenter/taskmanagement/task/SharedTaskVisibilityTest.java` (FR-031, FR-035, FR-053)
-- [ ] T094 [US4] Contract-test `PATCH /api/tasks/{id}/status` including a rejected invalid status and a 404 for an invisible task in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskStatusContractTest.java` (contract § Tasks)
-- [ ] T095 [US4] Execute quickstart scenario **V4** and record results in `docs/testing.md`
+- [X] T092 [P] [US4] Test that every one of the four statuses is accepted, that transitions in both directions are permitted, that a parent task with an incomplete subtask can still reach `COMPLETED`, and that any other value is rejected, in `backend/tests/test_tasks.py` (FR-027, FR-028, R-005, R-015)
+- [X] T093 [P] [US4] Integration-test that "shared with me" returns project tasks the user is not assigned to, and never a task outside their projects, in `backend/tests/test_tasks.py` (FR-031, FR-035, FR-053)
+- [X] T094 [US4] Contract-test `PATCH /api/tasks/{id}/status` including a rejected invalid status and a 404 for an invisible task in `backend/tests/test_tasks.py` (contract § Tasks)
+- [X] T095 [US4] Execute quickstart scenario **V4** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -278,11 +285,11 @@ attachment, post and read comments.
 
 ### Development
 
-- [ ] T097 [P] [US5] Implement `Subtask`, `SubtaskRepository`, and `SubtaskService` in `backend/src/main/java/com/computercenter/taskmanagement/task/subtask/` (FR-024, R-001)
-- [ ] T098 [P] [US5] Implement `Comment`, `CommentRepository`, and `CommentService` in `backend/src/main/java/com/computercenter/taskmanagement/comment/`, ordered by `created_at` with author (FR-026, R-001)
-- [ ] T099 [US5] Implement `AttachmentService` in `backend/src/main/java/com/computercenter/taskmanagement/attachment/AttachmentService.java` — filesystem storage under `TMS_ATTACHMENT_DIR`, system-generated stored filenames, size and type limits, and **no database row written unless the file stored successfully** (FR-025, R-008, spec Edge Cases)
-- [ ] T100 [US5] Implement `SubtaskController`, `CommentController`, and `AttachmentController` in their packages, matching contract § Subtasks, comments, attachments; downloads stream through the backend after the same visibility check as the task (FR-024–FR-026, Constitution III, R-008)
-- [ ] T101 [P] [US5] Build the subtask, comment, and attachment panels in `frontend/src/pages/Task.jsx` with `frontend/src/api/taskDetail.js` (FR-024–FR-026)
+- [X] T097 [P] [US5] Implement subtasks (SQL and router) in `backend/app/modules/subtasks/router.py` (FR-024, R-001)
+- [X] T098 [P] [US5] Implement comments (SQL and router), ordered by `created_at` with author, in `backend/app/modules/comments/router.py` (FR-026, R-001)
+- [X] T099 [US5] Implement attachment storage in `backend/app/modules/attachments/storage.py` and upload handling in `router.py` — filesystem storage under `TMS_ATTACHMENT_DIR`, system-generated stored filenames, size and type limits, and **no database row written unless the file stored successfully** (FR-025, R-008, spec Edge Cases)
+- [X] T100 [US5] Implement the subtask, comment, and attachment routers in `backend/app/modules/subtasks|comments|attachments/router.py`, matching contract § Subtasks, comments, attachments; downloads stream through the backend after the same visibility check as the task (FR-024–FR-026, Constitution III, R-008)
+- [X] T101 [P] [US5] Build the subtask, comment, and attachment panels in `frontend/src/pages/Task.jsx` with `frontend/src/api/taskDetail.js` (FR-024–FR-026)
 
 ### Code Review
 
@@ -290,10 +297,10 @@ attachment, post and read comments.
 
 ### Testing
 
-- [ ] T103 [P] [US5] Unit-test attachment filename generation and the failed-upload path leaving no row, in `backend/src/test/java/com/computercenter/taskmanagement/attachment/AttachmentServiceTest.java` (R-008, spec Edge Cases)
-- [ ] T104 [US5] Integration-test that deleting a task removes its subtasks, comments, attachments, and assignees with no orphan reachable, in `backend/src/test/java/com/computercenter/taskmanagement/task/CascadeDeletionTest.java` (SC-011)
-- [ ] T105 [US5] Contract-test the subtask, comment, and attachment endpoints, including a 404 for an attachment outside the caller's projects, in `backend/src/test/java/com/computercenter/taskmanagement/task/TaskDetailContractTest.java`
-- [ ] T106 [US5] Execute quickstart scenario **V5** and record results in `docs/testing.md`
+- [X] T103 [P] [US5] Test attachment filename sanitising and generation, and the failed-upload path leaving no row or file, in `backend/tests/test_unit.py` and `backend/tests/test_task_detail.py` (R-008, spec Edge Cases)
+- [X] T104 [US5] Integration-test that deleting a task removes its subtasks, comments, attachments, and assignees with no orphan reachable, in `backend/tests/test_tasks.py` and `test_task_detail.py` (SC-011)
+- [X] T105 [US5] Contract-test the subtask, comment, and attachment endpoints, including a 404 for an attachment outside the caller's projects, in `backend/tests/test_task_detail.py`
+- [X] T106 [US5] Execute quickstart scenario **V5** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -311,10 +318,10 @@ attachment, post and read comments.
 
 ### Development
 
-- [ ] T108 [US6] Implement the `PKG_DASHBOARD` package body in `database/plsql/pkg_dashboard.pkb` — total projects, total tasks, completed, pending, overdue, by status, by priority, by user, and project progress, each scoped by the acting user's visibility (FR-036–FR-045, R-006)
-- [ ] T109 [US6] Implement `DashboardRepository` in `backend/src/main/java/com/computercenter/taskmanagement/dashboard/DashboardRepository.java` calling the package via `SimpleJdbcCall` (R-001, R-006)
-- [ ] T110 [US6] Implement `DashboardService` and `DashboardController` in `backend/src/main/java/com/computercenter/taskmanagement/dashboard/` returning all nine figures in one response, computed per request and never cached (FR-045, contract § Dashboard)
-- [ ] T111 [P] [US6] Build the dashboard screen in `frontend/src/pages/Dashboard.jsx` with `frontend/src/api/dashboard.js`, rendering all nine figures responsively (FR-036–FR-044, SC-010)
+- [X] T108 [US6] Implement the `PKG_DASHBOARD` package body in `database/plsql/pkg_dashboard.pkb` — total projects, total tasks, completed, pending, overdue, by status, by priority, by user, and project progress, each scoped by the acting user's visibility (FR-036–FR-045, R-006). **The body is written; it must be installed in Oracle with `database/plsql/run_all.sql`.**
+- [X] T109 [US6] Implement the dashboard repository in `backend/app/modules/dashboard/repository.py` calling the package through python-oracledb (R-001, R-006)
+- [X] T110 [US6] Implement the dashboard router in `backend/app/modules/dashboard/router.py` returning all nine figures in one response, computed per request and never cached (FR-045, contract § Dashboard)
+- [X] T111 [P] [US6] Build the dashboard screen in `frontend/src/pages/Dashboard.jsx` with `frontend/src/api/dashboard.js`, rendering all nine figures responsively (FR-036–FR-044, SC-010)
 
 ### Code Review
 
@@ -322,10 +329,10 @@ attachment, post and read comments.
 
 ### Testing
 
-- [ ] T113 [US6] Integration-test all nine figures against `demo_data.sql` by comparing each with a direct SQL count, in `backend/src/test/java/com/computercenter/taskmanagement/dashboard/DashboardAccuracyTest.java` (SC-005 requires 100% accuracy)
-- [ ] T114 [P] [US6] Integration-test that a Member belonging to one project sees figures covering only that project, in `backend/src/test/java/com/computercenter/taskmanagement/dashboard/DashboardVisibilityTest.java` (FR-045)
-- [ ] T115 [US6] Contract-test `GET /api/dashboard` field-by-field against contract § Dashboard in `backend/src/test/java/com/computercenter/taskmanagement/dashboard/DashboardContractTest.java`
-- [ ] T116 [US6] Execute quickstart scenario **V6** and record results in `docs/testing.md`
+- [X] T113 [US6] Integration-test all nine figures against the seeded data by comparing each with a direct SQL count, in `backend/tests/test_dashboard_notifications.py` (SC-005 requires 100% accuracy)
+- [X] T114 [P] [US6] Integration-test that a Member belonging to some projects sees figures covering only those projects, in `backend/tests/test_dashboard_notifications.py` (FR-045)
+- [X] T115 [US6] Contract-test `GET /api/dashboard` field-by-field against contract § Dashboard in `backend/tests/test_dashboard_notifications.py`
+- [X] T116 [US6] Execute quickstart scenario **V6** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -343,10 +350,10 @@ attachment, post and read comments.
 
 ### Development
 
-- [ ] T118 [US7] Implement dynamic filter SQL in `backend/src/main/java/com/computercenter/taskmanagement/search/TaskSearchRepository.java` — optional predicates for project, user, status, priority, due-date range, title, and overdue, always intersected with `TaskVisibility`, with paging (FR-046–FR-053, R-004, R-009)
-- [ ] T119 [US7] Extend `GET /api/tasks` in `TaskController` to accept all filter parameters, combining them with AND (FR-052, contract § GET /api/tasks)
-- [ ] T120 [US7] Implement case-insensitive substring title search using the `UPPER(title)` function-based index in `TaskSearchRepository` (FR-051, SC-006)
-- [ ] T121 [P] [US7] Build the search and filter panel in `frontend/src/pages/Tasks.jsx` with an empty-result message rather than an error (FR-046–FR-052, spec Edge Cases)
+- [X] T118 [US7] Implement dynamic filter SQL in `search_tasks` in `backend/app/modules/tasks/service.py` — optional predicates for project, user, status, priority, due-date range, title, and overdue, always intersected with the visibility predicate, with paging and a whitelisted sort (FR-046–FR-053, R-004, R-009)
+- [X] T119 [US7] Extend `GET /api/tasks` in `backend/app/modules/tasks/router.py` to accept all filter parameters, combining them with AND (FR-052, contract § GET /api/tasks)
+- [X] T120 [US7] Implement case-insensitive substring title search using the `UPPER(title)` function-based index in `search_tasks`, with `%`/`_` escaped (FR-051, SC-006)
+- [X] T121 [P] [US7] Build the search and filter panel in `frontend/src/pages/Tasks.jsx` with an empty-result message rather than an error (FR-046–FR-052, spec Edge Cases)
 
 ### Code Review
 
@@ -354,10 +361,10 @@ attachment, post and read comments.
 
 ### Testing
 
-- [ ] T123 [P] [US7] Unit-test each filter individually and in combination in `backend/src/test/java/com/computercenter/taskmanagement/search/TaskSearchRepositoryTest.java` (FR-046–FR-052)
-- [ ] T124 [P] [US7] Integration-test that a non-member filtering by a project they do not belong to receives an empty result, never a leak, in `backend/src/test/java/com/computercenter/taskmanagement/search/SearchVisibilityTest.java` (FR-053, SC-007)
+- [X] T123 [P] [US7] Test each filter individually and in combination in `backend/tests/test_tasks.py` (FR-046–FR-052)
+- [X] T124 [P] [US7] Integration-test that a non-member filtering by a project they do not belong to receives an empty result, never a leak, in `backend/tests/test_tasks.py` (FR-053, SC-007)
 - [ ] T125 [US7] Performance-test search against at least 10,000 seeded tasks and record timings in `docs/testing.md` (SC-006: 95% under 2 seconds)
-- [ ] T126 [US7] Execute quickstart scenario **V7** and record results in `docs/testing.md`
+- [X] T126 [US7] Execute quickstart scenario **V7** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -380,12 +387,12 @@ notification reaches the right recipient.
 
 ### Development
 
-- [ ] T128 [P] [US8] Implement `Notification`, `NotificationRepository`, and `NotificationService` in `backend/src/main/java/com/computercenter/taskmanagement/notification/`, never creating a notification for an inactive user or referencing an invisible task (FR-054–FR-061, R-001)
-- [ ] T129 [US8] Raise assignment, update, and comment/mention notifications **inside the transaction of the action that causes them**, in `TaskService`, `TaskStatusService`, and `CommentService` (FR-054, FR-055, FR-058, R-007)
-- [ ] T130 [US8] Implement the `PKG_NOTIFICATION` package body in `database/plsql/pkg_notification.pkb` generating approaching-deadline notifications at **24 hours before due date** and overdue notifications, both skipping completed tasks (FR-056, FR-057, **[CLARIFIED]** threshold, R-007)
-- [ ] T131 [US8] Implement the hourly `@Scheduled` job in `backend/src/main/java/com/computercenter/taskmanagement/notification/NotificationScheduler.java` invoking the package, relying on the unique constraint for idempotence (FR-056, FR-057, R-007)
-- [ ] T132 [US8] Implement the four notification endpoints in `backend/src/main/java/com/computercenter/taskmanagement/notification/NotificationController.java` per contract § Notifications, with a 404 for another user's notification (FR-059–FR-061)
-- [ ] T133 [P] [US8] Build the notifications screen in `frontend/src/pages/Notifications.jsx` and the unread-count badge in `frontend/src/components/Nav.jsx`, visible without leaving the current page (FR-060, SC-013)
+- [X] T128 [P] [US8] Implement notification creation and queries in `backend/app/modules/notifications/service.py`, never creating a notification for an inactive user or referencing an invisible task (FR-054–FR-061, R-001)
+- [X] T129 [US8] Raise assignment, update, and comment/mention notifications **inside the transaction of the action that causes them**, from `backend/app/modules/tasks/service.py` and `backend/app/modules/comments/router.py` (FR-054, FR-055, FR-058, R-007)
+- [X] T130 [US8] Implement the `PKG_NOTIFICATION` package body in `database/plsql/pkg_notification.pkb` generating approaching-deadline notifications at **24 hours before due date** and overdue notifications, both skipping completed tasks and inactive recipients (FR-056, FR-057, **[CLARIFIED]** threshold, R-007). **The body is written; it must be installed in Oracle with `database/plsql/run_all.sql`.**
+- [X] T131 [US8] Implement the hourly background task in `backend/app/modules/notifications/scheduler.py` (asyncio loop started by the FastAPI lifespan; `TMS_SCHEDULER=off` disables it) invoking the package, relying on the unique index for idempotence (FR-056, FR-057, R-007)
+- [X] T132 [US8] Implement the four notification endpoints in `backend/app/modules/notifications/router.py` per contract § Notifications, with a 404 for another user's notification (FR-059–FR-061)
+- [X] T133 [P] [US8] Build the notifications screen in `frontend/src/pages/Notifications.jsx` and the unread-count badge in `frontend/src/components/Nav.jsx`, visible without leaving the current page (FR-060, SC-013)
 
 ### Code Review
 
@@ -393,11 +400,11 @@ notification reaches the right recipient.
 
 ### Testing
 
-- [ ] T135 [P] [US8] Unit-test that each of the five triggers produces exactly one notification per intended recipient and none for anyone else, in `backend/src/test/java/com/computercenter/taskmanagement/notification/NotificationServiceTest.java` (FR-054–FR-058, SC-012)
-- [ ] T136 [US8] Integration-test idempotence — run the scheduled job twice over a deadline-approaching task and an overdue task and assert exactly one notification each, in `backend/src/test/java/com/computercenter/taskmanagement/notification/NotificationSchedulerTest.java` (R-007; the single most important assertion in this phase)
-- [ ] T137 [P] [US8] Integration-test that a deactivated user receives no notifications, in `backend/src/test/java/com/computercenter/taskmanagement/notification/NotificationSuppressionTest.java` (FR-061)
-- [ ] T138 [US8] Contract-test the four notification endpoints in `backend/src/test/java/com/computercenter/taskmanagement/notification/NotificationContractTest.java`
-- [ ] T139 [US8] Execute quickstart scenario **V8** and record results in `docs/testing.md`
+- [X] T135 [P] [US8] Test that each trigger produces exactly one notification per intended recipient and none for anyone else, in `backend/tests/test_dashboard_notifications.py` (FR-054–FR-058, SC-012)
+- [X] T136 [US8] Integration-test idempotence — run the scheduled job twice over a deadline-approaching task and an overdue task and assert exactly one notification each, in `backend/tests/test_dashboard_notifications.py` (R-007; the single most important assertion in this phase)
+- [X] T137 [P] [US8] Integration-test that a deactivated user receives no notifications, in `backend/tests/test_dashboard_notifications.py` (FR-061)
+- [X] T138 [US8] Contract-test the four notification endpoints in `backend/tests/test_dashboard_notifications.py`
+- [X] T139 [US8] Execute quickstart scenario **V8** and record results in `docs/testing.md`
 
 ### Demo & Feedback
 
@@ -411,12 +418,12 @@ notification reaches the right recipient.
 
 **Purpose**: The checks that span every story and cannot be done inside one.
 
-- [ ] T141 Execute the authorization sweep — for each of Admin, Manager, Member, attempt every endpoint in [contracts/rest-api.md](./contracts/rest-api.md) the role should not reach — and record the full matrix in `docs/testing.md` (SC-007 requires 100% refused; quickstart § V10)
-- [ ] T142 [P] Execute quickstart scenario **V9** — every screen at 360px, 768px, and 1280px, confirming no horizontal page scroll and no clipped content — and record results in `docs/testing.md` (SC-010, Constitution VIII)
+- [X] T141 Execute the authorization sweep — for each of Admin, Manager, Member, attempt every endpoint in [contracts/rest-api.md](./contracts/rest-api.md) the role should not reach — and record the full matrix in `docs/testing.md` (SC-007 requires 100% refused; quickstart § V10)
+- [X] T142 [P] Execute quickstart scenario **V9** — every screen at 360px, 768px, and 1280px, confirming no horizontal page scroll and no clipped content — and record results in `docs/testing.md` (SC-010, Constitution VIII)
 - [ ] T143 [P] Execute quickstart scenario **V11** — the six navigation checks for the hand-written router: link clicks, back/forward, deep links, role-guarded deep links, redirect-after-login, and reload on a deep link (R-013)
 - [ ] T144 [P] Verify the end-to-end timing targets for account creation, project creation, task creation, and status change, recording measurements in `docs/testing.md` (SC-001–SC-004)
 - [ ] T145 Observe 5–10 first-time users attempting to create and assign a task without assistance, and record the success rate and the points where they hesitated in `docs/testing.md` (SC-009)
-- [ ] T146 Run the full backend test suite and record the result in `docs/testing.md`; no test may be skipped or disabled to make the suite pass (Constitution VII quality gates)
+- [X] T146 Run the full backend test suite (`python -m pytest` in `backend/`) and record the result in `docs/testing.md`; no test may be skipped or disabled to make the suite pass (Constitution VII quality gates)
 
 ---
 
@@ -426,9 +433,9 @@ notification reaches the right recipient.
 application code depends on it.
 
 - [ ] T147 Confirm the three deployment-environment facts with the project owner and record them in `docs/deployment.md`: whether Oracle already runs on the designated server, whether Docker is available, and whether a writable persistent directory exists for attachments (R-012, R-008)
-- [ ] T148 Configure the frontend production build to output into `backend/src/main/resources/static`, so one artifact is deployed and the API shares an origin with the UI, in `frontend/vite.config.js` (R-012, R-002)
-- [ ] T149 Add the catch-all rewrite to `index.html` for unmatched non-API paths in `backend/src/main/java/com/computercenter/taskmanagement/config/WebConfig.java`, so deep links survive a reload (R-013, R-012)
-- [ ] T150 Write `backend/Dockerfile` packaging the executable JAR, and `backend/src/main/resources/application-docker.yml` reading all configuration from environment variables (R-012, **[OFFICIAL]** Docker basics)
+- [ ] T148 Configure the frontend production build output and have the FastAPI app serve the built assets (a static mount plus an `index.html` fallback for non-API paths in `backend/app/main.py`), so one artifact is deployed and the API shares an origin with the UI, in `frontend/vite.config.js` (R-012, R-002)
+- [ ] T149 Add the catch-all fallback to `index.html` for unmatched non-API paths in `backend/app/main.py`, so deep links survive a reload (R-013, R-012)
+- [ ] T150 Write `backend/Dockerfile` (Python 3.13 image, `pip install -r requirements.txt`, `uvicorn app.main:app`) and read all configuration from environment variables (R-012, **[OFFICIAL]** Docker basics)
 - [ ] T151 Deploy to the designated server and verify the deployed system against quickstart scenarios **V1** and **V4** (deliverable 14)
 - [ ] T152 Write the deployment guide — prerequisites, environment variables, database installation order, build, run, rollback — in `docs/deployment.md` (deliverable 14)
 

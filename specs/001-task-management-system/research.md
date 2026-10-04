@@ -9,42 +9,37 @@ project owner's confirmation.
 
 ---
 
-## R-001: Data access strategy — where SQL and PL/SQL live
+## R-001: Data access strategy: where SQL and PL/SQL live
 
-> **Revised 2026-09-21 (compliance review).** The original decision was Spring Data JPA for
-> CRUD. It has been **reversed**: no ORM is used. The rule applied was the project owner's —
-> *"if the required functionality can be implemented reasonably using the official stack
-> without one of them, prefer the official stack."* SQL is officially required; JPA is not.
+> **Revised 2026-10-04 (backend moved to Python/FastAPI, Constitution v3.0.0).** The earlier
+> revisions (2026-09-21) already rejected an ORM; that decision stands. Only the mechanism
+> changed: `JdbcTemplate` became `python-oracledb`.
 
-**Decision**: `spring-boot-starter-jdbc` — Spring's `JdbcTemplate` — for all data access. SQL
-is written by hand in repository classes with explicit `RowMapper`s. PL/SQL packages handle
-dashboard aggregation and scheduled notification generation, called via `SimpleJdbcCall`.
-Schema DDL is hand-written and version-controlled in `database/ddl/` and is the sole source of
-truth for the schema. **No ORM, no Hibernate, no entity annotations, no `ddl-auto`.**
+**Decision**: `python-oracledb` in thin mode (no Oracle Client install) with a connection pool,
+used for all data access. SQL is written by hand in each feature's service/repository code
+with **bind variables only** (never string-built values) and results are mapped to plain
+dicts. PL/SQL packages handle dashboard aggregation (`PKG_DASHBOARD`) and scheduled
+notification generation (`PKG_NOTIFICATION`), called through the driver. Schema DDL is
+hand-written and version-controlled in `database/ddl/` and is the sole source of truth for the
+schema. **No ORM (neither SQLAlchemy nor any other), no model-driven schema generation.**
+Transactions are explicit: one pooled connection per request, `commit()` at the end of a
+successful unit of work, rollback if an error escapes.
 
 **Rationale**: The official document names Oracle Database, SQL, and PL/SQL as technologies to
-be used. `JdbcTemplate` is part of Spring Boot, which is also officially named, so this
-combination introduces **no dependency outside the official stack** while using every named
-database technology for real work. It also removes an entire category of problem that has no
-place in a training project: lazy-loading surprises, the N+1 select problem, detached-entity
-errors, and a schema whose true shape is negotiated between annotations and DDL.
+be used. Writing SQL directly uses every named database technology for real work, keeps the
+true shape of the schema in DDL rather than negotiated between annotations and DDL, and avoids
+lazy-loading and N+1 surprises.
 
-**Cost, stated honestly**: hand-written `RowMapper`s for 12 entities, plus explicit join
-handling for the two many-to-many relationships (PROJECT_MEMBERS, TASK_ASSIGNEES). That is
-roughly 300–400 lines of mechanical, highly reviewable code. It is more typing than JPA and
-less risk. Transaction boundaries are still declarative via `@Transactional`, which
-`spring-boot-starter-jdbc` supports.
+**Cost, stated honestly**: row-to-JSON mapping is written by hand for each resource, and the
+two many-to-many relationships (PROJECT_MEMBERS, TASK_ASSIGNEES) are handled explicitly. That is
+more typing than an ORM and less risk. Dynamic WHERE clauses (search) are assembled from fixed
+SQL fragments with bind variables, and ORDER BY comes from a whitelist.
 
 **Alternatives considered**:
 
-- *Spring Data JPA / Hibernate* — the original decision, now rejected. It is the conventional
-  Spring Boot choice and would have saved the mapping code, but it is a dependency the official
-  document never names, and it pushes SQL out of sight in exactly the project where SQL is a
-  stated learning objective.
-- *JPA with `ddl-auto: update`*: rejected — makes Hibernate the owner of the schema, directly
-  contradicting the requirement that the team designs the database and delivers an ERD.
-- *Raw JDBC with no Spring support*: rejected — `JdbcTemplate` is part of the officially named
-  Spring Boot and removes connection and exception boilerplate without adding anything.
+- *SQLAlchemy / any ORM*: rejected. It is a dependency the official document never names, and
+  it pushes SQL out of sight in exactly the project where SQL is a stated learning objective.
+- *ORM-driven schema creation*: rejected. The team designs the database and delivers the ERD.
 
 ---
 
@@ -135,35 +130,36 @@ remain a breakdown aid, not a gate.
 
 ## R-002: Authentication mechanism
 
-**Decision**: Spring Security with server-side HTTP sessions and a `JSESSIONID` cookie
-(`HttpOnly`, `SameSite=Lax`, `Secure` in production). Passwords hashed with BCrypt via Spring
-Security's `PasswordEncoder`. No token library.
+**Decision**: A server-issued **signed session cookie** (Starlette `SessionMiddleware`, signed
+with `TMS_SESSION_SECRET` using `itsdangerous`; `HttpOnly`, `SameSite=Lax`, `Secure` in
+production) that carries only the user id. On **every** request the `current_user` dependency
+re-reads the user from `USERS`; an unknown or deactivated user gets `401` and the session is
+cleared. Passwords are hashed with **bcrypt** (the existing `$2a$` demo hashes verify
+unchanged). No token library, and no session table: the schema is unchanged.
 
 **Rationale**: The official document requires "Authentication & Authorization" without naming a
-mechanism. `spec.md` Assumptions record that login uses an identifier and password held by the
-system, with no external or federated provider. Sessions are built into
-`spring-boot-starter-security`, so this adds **zero** dependencies, whereas JWT would add a
-token library. Frontend and backend are served from the same origin in deployment, so a session
-cookie works without cross-origin complications. Session invalidation also gives FR-007
-(deactivated user loses access) an immediate, server-side enforcement point, which stateless
-JWTs notoriously do not.
+mechanism. `spec.md` Assumptions record login with an identifier and password held by the
+system, no federated provider. FR-007 / SC-008 require that deactivating a user refuse their
+**next** request; because the account state is re-checked from the database on each request,
+that holds even though the cookie itself is still validly signed, which a stateless JWT
+cannot offer without a denylist. Frontend and backend share an origin in deployment (Vite proxy
+in development), so a cookie works without CORS complications.
 
 **Alternatives considered**:
 
-- *JWT bearer tokens*: the common SPA pattern, but adds a library, and revoking a deactivated
-  user's access before token expiry requires a denylist — extra machinery for a requirement
-  sessions satisfy for free.
-- *HTTP Basic*: rejected — no logout, credentials re-sent on every request.
-- *OAuth2 / external identity provider*: rejected — explicitly excluded by the spec's
-  Assumptions and not in the official document.
+- *JWT bearer tokens*: adds a library and needs a denylist to revoke a deactivated user.
+- *Server-side session table*: would require a schema change, which is out of bounds; the
+  per-request database check gives the same revocation guarantee.
+- *HTTP Basic*: rejected. No logout, credentials re-sent on every request.
+- *OAuth2 / external identity provider*: excluded by the spec's Assumptions.
 
 ---
 
 ## R-003: Authorization model
 
-**Decision**: Two layers, both server-side. (1) **Role checks** via Spring Security method
-security (`@PreAuthorize`) for coarse capability — e.g. only Admin may deactivate a user, only
-Manager may create a project. (2) **Membership checks** in the service layer for every
+**Decision**: Two layers, both server-side. (1) **Role checks** via FastAPI dependencies
+(`require_roles(...)`) for coarse capability — e.g. only Admin may deactivate a user, only
+Manager may create a project. (2) **Membership checks** in the service layer (`app/common/access.py`) for every
 project-scoped or task-scoped operation — the acting user must be a member of the task's
 project, and for assignee-only operations must be an assignee.
 
@@ -202,7 +198,7 @@ source of the class of bug where a task hidden from a list still appears in a da
 
 ## R-005: Task status workflow enforcement
 
-**Decision**: Status is a Java enum (`TO_DO`, `IN_PROGRESS`, `REVIEW`, `COMPLETED`) mirrored by
+**Decision**: Status is a fixed set (`TO_DO`, `IN_PROGRESS`, `REVIEW`, `COMPLETED`) in the application, mirrored by
 a `TASK_STATUS` reference table with a check constraint. Transitions are validated in a single
 service method; any status change goes through it. The API exposes status change as its own
 endpoint (`PATCH /tasks/{id}/status`), not as a general task update.
@@ -224,7 +220,7 @@ rejected. Implemented by T085 and asserted in both directions by T092.
 
 **Decision**: One PL/SQL package, `PKG_DASHBOARD`, exposing functions/cursors for each figure
 in FR-036 to FR-044, each taking the acting user id so that visibility (R-004) is applied
-inside the query. Spring calls it via `@Procedure` / `SimpleJdbcCall`. Dashboard figures are
+inside the query. The backend calls it through python-oracledb (`callproc` / `callfunc` returning `SYS_REFCURSOR`). Dashboard figures are
 computed on request, never cached.
 
 **Rationale**: Uses the officially required PL/SQL for the work it genuinely suits — set-based
@@ -236,7 +232,7 @@ source of truth.
 
 **Alternatives considered**:
 
-- *Java-side aggregation in application code*: rejected — leaves PL/SQL unused and moves set operations out
+- *Application-side aggregation in Python*: rejected — leaves PL/SQL unused and moves set operations out
   of the database.
 - *Materialised views with periodic refresh*: rejected — contradicts FR-045 (figures must be
   current) and adds refresh scheduling for a data volume that does not need it.
@@ -252,14 +248,14 @@ source of truth.
 **Decision**: Two mechanisms. **Event-driven** triggers (FR-054 assignment, FR-055 update,
 FR-058 comment/mention) are written synchronously in the same transaction as the action that
 causes them. **Date-driven** triggers (FR-056 approaching deadline at 24 hours, FR-057 overdue)
-are generated by a PL/SQL package `PKG_NOTIFICATION` invoked by a Spring `@Scheduled` job
-running hourly. A uniqueness constraint on (task, recipient, trigger type) makes generation
+are generated by a PL/SQL package `PKG_NOTIFICATION` invoked by an hourly background task
+(an asyncio loop started in the FastAPI lifespan; `TMS_SCHEDULER=off` disables it). A uniqueness constraint on (task, recipient, trigger type) makes generation
 idempotent, so a task that stays overdue for days produces exactly one notification.
 
 **Rationale**: The **[CLARIFIED]** decision put all five triggers in scope. Three are caused by
 a user action and belong in that action's transaction — no scheduling, no lag, no possibility of
 a notification for an action that rolled back. Two are caused by the passage of time and have no
-triggering request, so something must run without a user. `@Scheduled` is part of Spring Boot,
+triggering request, so something must run without a user. The loop is plain `asyncio`,
 adding no dependency. Hourly granularity is sufficient for a 24-hour threshold and a
 day-granularity overdue rule, and the uniqueness constraint is what actually guarantees
 "once, not repeatedly" — the schedule is then just a liveness concern.
@@ -267,8 +263,7 @@ day-granularity overdue rule, and the uniqueness constraint is what actually gua
 **Note**: this remains the only part of the system that runs without a user request, and it
 exists because of the **[CLARIFIED]** choice to build all five triggers — now confirmed. Cycle 8
 therefore carries the scheduler and `PKG_NOTIFICATION` as required work, not optional work. No
-technology is added: `@Scheduled` ships with Spring Boot and the package is PL/SQL, both
-officially named.
+technology is added: the loop is standard-library `asyncio` and the package is PL/SQL.
 
 ---
 
@@ -277,7 +272,7 @@ officially named.
 **Decision**: Files stored on the server filesystem under a configured directory; the
 ATTACHMENTS table stores metadata and the stored filename, never the bytes. Stored filenames
 are generated, never taken from user input. A per-file size limit and an allowed-type list are
-configured in `application.yml`. Download is served by the backend after the same visibility
+configured in `app/config.py` (limits); the location is the `TMS_ATTACHMENT_DIR` environment variable. Download is served by the backend after the same visibility
 check as the task (R-004).
 
 **Rationale**: The official document requires attachments on tasks and says nothing about how
@@ -345,19 +340,21 @@ documentation is largely a formatting exercise rather than new work.
 
 ## R-011: Testing approach ⚠
 
-**Decision**: Backend — JUnit 5 with `spring-boot-starter-test`: unit tests for service-layer
-rules (workflow transitions, visibility, permissions), `@SpringBootTest` integration tests
-against a real Oracle schema, and MockMvc contract tests asserting every endpoint's status
-codes and payload shape against `contracts/rest-api.md`. Frontend — documented manual test
-procedures in `docs/testing.md`, covering each user story's acceptance scenarios plus a
-responsive-behaviour checklist at three breakpoints. Per Constitution VII, tests are written
-**after** development within each cycle and before the cycle's Demo.
+**Decision**: Backend: **pytest** with FastAPI's `TestClient` (httpx). Unit tests cover pure rules
+(hashing, paging, error body, filename sanitising, status set). Integration/contract tests
+drive every endpoint through HTTP against a **real Oracle schema** using the demo seed
+accounts, asserting status codes and payload shapes against `contracts/rest-api.md`. Tests
+create only `ZZTEST`-prefixed rows and delete them afterwards, leaving the demo data intact.
+Frontend: documented manual test procedures in `docs/testing.md`, covering each user story's
+acceptance scenarios plus a responsive-behaviour checklist at three breakpoints. Per
+Constitution VII, tests are written **after** development within each cycle and before the
+cycle's Demo.
 
-**Rationale**: `spring-boot-starter-test` is already part of the prescribed Spring Boot stack,
-so backend automation is free. No frontend test framework is named in any official list, and
-the required deliverable is "testing documentation", which a manual procedure satisfies.
-Authorization rules (FR-005, FR-053, SC-007) are the highest-risk area and are fully covered by
-backend tests, where enforcement actually lives.
+**Rationale**: pytest is the standard Python test runner and FastAPI ships `TestClient`, so
+backend automation costs two test-only packages (pytest, httpx). No frontend test framework is
+named in any official list, and the required deliverable is "testing documentation", which a
+manual procedure satisfies. Authorization rules (FR-005, FR-053, SC-007) are the highest-risk
+area and are fully covered by backend tests, where enforcement actually lives.
 
 **⚠ Confirm**: manual frontend testing is the weakest part of this plan. It satisfies the
 official deliverable, but it means the React code has no automated regression safety net.
@@ -367,8 +364,8 @@ Adding Vitest and React Testing Library would fix that at the cost of two dev de
 
 ## R-012: Deployment ⚠
 
-**Decision**: Backend packaged as an executable JAR and containerised with a Dockerfile;
-frontend built to static assets and served by the backend from `src/main/resources/static`, so
+**Decision**: Backend run by Uvicorn (`uvicorn app.main:app --port 8080`) and, for deployment, containerised with a Python Dockerfile;
+frontend built to static assets and served by the backend from a static directory with an `index.html` fallback, so
 that one artifact is deployed and the frontend and API share an origin (which R-002's session
 cookie relies on). Oracle runs on the designated server as an existing instance, not in a
 container. Configuration via environment variables; no credential committed.
@@ -381,7 +378,7 @@ the simplest thing that satisfies both the SPA and same-origin session requireme
 **⚠ Open questions for the project owner, needed before cycle 9, not before development:**
 
 1. Does the designated server already host an Oracle instance, or must one be provisioned?
-2. Does it run Docker? If not, the JAR deploys directly and the Dockerfile becomes optional —
+2. Does it run Docker? If not, the app deploys directly under Uvicorn and the Dockerfile becomes optional —
    the official wording is "where applicable".
 3. Is there a writable persistent directory for attachments (see R-008)?
 
@@ -401,7 +398,7 @@ on the answers.
 
 | ID | Was | Now |
 |----|-----|-----|
-| R-001 | Spring Data JPA ⚠ | `JdbcTemplate` — no ORM, no non-official dependency |
+| R-001 | ORM / Spring Data JPA ⚠ | Raw SQL via python-oracledb (was `JdbcTemplate` before the 2026-10-04 move to Python): no ORM |
 | R-013 | React Router ⚠ | Hand-written History API router — no non-official dependency |
 | R-010 | Hand-written API docs vs Swagger ⚠ | Confirmed hand-written; springdoc not adopted |
 | R-007 | All five notification triggers ⚠ | Confirmed kept, including the 24-hour threshold |

@@ -1,107 +1,88 @@
 /*
- * T042 — application shell and role-aware navigation.
+ * Application shell: the route table and the session / unread-count providers.
  *
- * Screens are mounted as each user story is implemented. Phase 2 delivers the shell,
- * the router, the session, and the design system; US1 (T048-T051) mounts the first screens.
+ * Public screens: login, register, forgot password. Every other screen sits behind
+ * <RouteGuard> and renders inside the shared <AppLayout> (sidebar + top bar). The guard and the
+ * role lists only decide what the interface offers; the API enforces authorization on every
+ * request (Constitution V, FR-005).
  */
 import './styles/layout.css';
+import { useEffect } from 'react';
 import { Router, Routes, useRouter } from './router/Router.jsx';
-import { Link } from './router/Link.jsx';
+import { RouteGuard } from './router/RouteGuard.jsx';
 import { SessionProvider, useSession } from './auth/SessionContext.jsx';
-import { ROUTES } from './router/routes.js';
+import { UnreadProvider } from './notifications/UnreadContext.jsx';
+import { ROUTES, ROUTE_ROLES } from './router/routes.js';
+import AppLayout from './components/AppLayout.jsx';
+import { Link } from './router/Link.jsx';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
-import { RouteGuard } from './router/RouteGuard.jsx';
+import Profile from './pages/Profile.jsx';
+import Users from './pages/Users.jsx';
+import Projects from './pages/Projects.jsx';
+import Project from './pages/Project.jsx';
+import Tasks from './pages/Tasks.jsx';
+import Task from './pages/Task.jsx';
+import MyTasks from './pages/MyTasks.jsx';
+import Notifications from './pages/Notifications.jsx';
 
-function Nav() {
-  const { user, logout } = useSession();
-  if (!user) return null;
+const guarded = (path, render) => ({
+  path,
+  element: (params) => <RouteGuard roles={ROUTE_ROLES[path]}>{render(params)}</RouteGuard>,
+});
 
-  return (
-    <nav className="nav">
-      <div className="nav__inner">
-        <strong>Task Management</strong>
-        <Link to={ROUTES.DASHBOARD} className="nav__link">Dashboard</Link>
-        <Link to={ROUTES.PROJECTS} className="nav__link">Projects</Link>
-        <Link to={ROUTES.TASKS} className="nav__link">Tasks</Link>
-        <Link to={ROUTES.MY_TASKS} className="nav__link">My tasks</Link>
-        {user.role === 'ADMIN' && <Link to={ROUTES.USERS} className="nav__link">Users</Link>}
-        <span className="spacer" />
-        <Link to={ROUTES.PROFILE} className="nav__link">{user.fullName ?? user.username}</Link>
-        <button className="btn" onClick={logout}>Sign out</button>
-      </div>
-    </nav>
-  );
-}
-
-/*
- * Routes are registered here as each user story lands.
- * Week 2 delivers the authentication screens; the remaining US1 screens (profile, user
- * administration) follow in T049-T051.
- */
 const routes = [
   { path: ROUTES.LOGIN, element: () => <Login /> },
   { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
   { path: ROUTES.REGISTER, element: () => <Register /> },
-  // Behind the session guard; the Dashboard renders its own sidebar and top bar.
-  { path: ROUTES.DASHBOARD, element: () => <RouteGuard><Dashboard /></RouteGuard> },
+  { path: ROUTES.HOME, element: () => <Home /> },
+  guarded(ROUTES.DASHBOARD, () => <Dashboard />),
+  guarded(ROUTES.PROFILE, () => <Profile />),
+  guarded(ROUTES.USERS, () => <Users />),
+  guarded(ROUTES.PROJECTS, () => <Projects />),
+  guarded(ROUTES.PROJECT, ({ id }) => <Project key={id} id={id} />),
+  guarded(ROUTES.TASKS, () => <Tasks />),
+  guarded(ROUTES.TASK, ({ id }) => <Task key={id} id={id} />),
+  guarded(ROUTES.MY_TASKS, () => <MyTasks />),
+  guarded(ROUTES.NOTIFICATIONS, () => <Notifications />),
 ];
 
-/*
- * DEVELOPMENT-ONLY visual preview of the Dashboard, at /dev/dashboard.
- *
- * It renders the real <Dashboard /> component without a session so the layout can be
- * reviewed before the backend login works. It creates no session, calls no auth endpoint
- * and grants access to nothing: the Dashboard shows only sample data. `import.meta.env.DEV`
- * is replaced by the literal `false` in `vite build`, so this route and its path string are
- * removed from production bundles. The real /dashboard route above stays behind RouteGuard.
- */
-const DEV_PREVIEW_PATH = import.meta.env.DEV ? '/dev/dashboard' : null;
-if (DEV_PREVIEW_PATH) {
-  routes.push({ path: DEV_PREVIEW_PATH, element: () => <Dashboard preview /> });
+/** "/" sends a signed-in user to the dashboard; the guard sends everyone else to login. */
+function Home() {
+  const { navigate } = useRouter();
+  const { user, loading } = useSession();
+  useEffect(() => {
+    if (!loading) navigate(user ? ROUTES.DASHBOARD : `${ROUTES.LOGIN}`, { replace: true });
+  }, [loading, user, navigate]);
+  return <p className="empty-state">Loading…</p>;
 }
 
-function Placeholder() {
+function NotFound() {
   return (
-    <div className="container">
-      <div className="card empty-state">
-        <p><strong>Foundation ready.</strong></p>
-        <p>
-          Design system, router, session and API client are in place. Screens are added
-          per user story, starting with US1 (login, profile, user administration).
-        </p>
-      </div>
-    </div>
+    <RouteGuard>
+      <AppLayout title="Not found">
+        <div className="panel">
+          <p><strong>This page does not exist.</strong></p>
+          <p><Link to={ROUTES.DASHBOARD} className="text-link">Back to the dashboard</Link></p>
+        </div>
+      </AppLayout>
+    </RouteGuard>
   );
 }
 
-/**
- * The authentication screens are full-viewport and must render without the navigation
- * bar, which is only meaningful once a user is signed in.
- */
 function Shell() {
-  const { pathname } = useRouter();
-  const isAuthScreen = pathname === ROUTES.LOGIN
-    || pathname === ROUTES.REGISTER
-    || pathname === ROUTES.FORGOT_PASSWORD
-    || pathname === ROUTES.DASHBOARD   // has its own sidebar + top bar
-    || pathname === DEV_PREVIEW_PATH;
-
-  return (
-    <>
-      {!isAuthScreen && <Nav />}
-      <Routes routes={routes} fallback={<Placeholder />} />
-    </>
-  );
+  return <Routes routes={routes} fallback={<NotFound />} />;
 }
 
 export default function App() {
   return (
     <SessionProvider>
       <Router>
-        <Shell />
+        <UnreadProvider>
+          <Shell />
+        </UnreadProvider>
       </Router>
     </SessionProvider>
   );

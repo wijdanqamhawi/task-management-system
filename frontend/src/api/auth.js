@@ -11,14 +11,15 @@
 import { api } from './client.js';
 
 /**
- * POST /api/auth/login — establishes the JSESSIONID session cookie (R-002).
+ * POST /api/auth/login — establishes the signed `tms_session` cookie (R-002). `remember`
+ * asks for a 30-day persistent session; otherwise it is a browser-session cookie (8 h cap).
  *
  * Returns the signed-in user on success. Throws ApiError with status 401 on bad
  * credentials AND on a deactivated account, with the same message either way, so the
  * response never reveals which credential was wrong (US1 scenario 2, FR-007).
  */
-export function login(email, password) {
-  return api.post('/auth/login', { email, password });
+export function login(email, password, remember = false) {
+  return api.post('/auth/login', { email, password, remember });
 }
 
 /**

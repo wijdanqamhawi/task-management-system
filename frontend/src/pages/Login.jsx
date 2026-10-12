@@ -76,7 +76,7 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  // Visual only: no requirement defines persistent sessions, so this value is not sent.
+  // Checked: 30-day persistent session. Unchecked: browser-session cookie (8 h server cap).
   const [remember, setRemember] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -116,7 +116,7 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, remember);
 
       // Return the user to the page they originally asked for, if a guard sent them
       // here with ?next= (router/RouteGuard.jsx).

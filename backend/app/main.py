@@ -7,7 +7,6 @@ import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
-from starlette.middleware.sessions import SessionMiddleware
 
 from app import db
 from app.config import get_settings
@@ -22,6 +21,7 @@ from app.modules.subtasks.router import router as subtasks_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
 from app.modules.notifications.scheduler import run_scheduler
+from app.session import install_session
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s:     %(name)s: %(message)s")
 log = logging.getLogger("tms")
@@ -45,9 +45,7 @@ def create_app() -> FastAPI:
     settings = get_settings()
     app = FastAPI(title="Task Management System API", lifespan=lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)   # API docs are hand-written (R-010)
-    app.add_middleware(
-        SessionMiddleware, secret_key=settings.session_secret, session_cookie="tms_session",
-        max_age=settings.session_max_age, same_site="lax", https_only=False)
+    install_session(app, secret=settings.session_secret, secure=settings.cookie_secure)
     install_handlers(app)
     app.include_router(auth_router)
     app.include_router(users_router)

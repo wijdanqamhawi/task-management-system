@@ -88,8 +88,11 @@ from the email's local part and made unique. `password` must be 8 to 72 bytes.
 Returns the created user without `password`. `409` if username or email is taken. New accounts
 receive the `MEMBER` role and `isActive: true` **[CLARIFIED, FR-008]**.
 
-**`POST /api/auth/login`** body `{ "email": "...", "password": "..." }` (`username` is accepted
-in place of `email`) → `200` with the user body and a `Set-Cookie` session header.
+**`POST /api/auth/login`** body `{ "email": "...", "password": "...", "remember": false }`
+(`username` is accepted in place of `email`; `remember` is optional) → `200` with the user body
+and a `Set-Cookie` session header. Without `remember` the cookie is a browser-session cookie and
+the session expires server-side after 8 hours; with `remember: true` the cookie is persistent
+and the session lasts 30 days.
 `401` on bad credentials **and** on a deactivated account, with the same message either way
 (US1 scenario 2: never reveal which credential was wrong; FR-007).
 

@@ -33,7 +33,9 @@ class Settings:
         "application/vnd.ms-excel",
         "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     })
-    session_max_age: int = 8 * 60 * 60
+    session_max_age: int = 8 * 60 * 60              # server-side lifetime WITHOUT "Remember me"
+    remember_days: int = 30                         # server-side lifetime WITH "Remember me"
+    cookie_secure: bool = False                     # TMS_COOKIE_SECURE=true behind HTTPS
 
 
 _settings: Settings | None = None
@@ -51,5 +53,8 @@ def get_settings() -> Settings:
             db_dsn=_required("TMS_DB_DSN"),
             session_secret=_required("TMS_SESSION_SECRET"),
             attachment_dir=attachment_dir,
+            remember_days=int(os.getenv("TMS_REMEMBER_DAYS") or 30),
+            cookie_secure=(os.getenv("TMS_COOKIE_SECURE") or "").strip().lower()
+            in ("1", "true", "yes", "on"),
         )
     return _settings

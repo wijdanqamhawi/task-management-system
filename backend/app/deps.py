@@ -8,6 +8,7 @@ from fastapi import Depends, Request
 
 from app.db import Db, get_db
 from app.errors import forbidden, unauthorized
+from app import session as session_policy
 
 ADMIN, MANAGER, MEMBER = "ADMIN", "MANAGER", "MEMBER"
 
@@ -26,6 +27,12 @@ def load_user(db: Db, user_id: int) -> dict | None:
 def current_user(request: Request, db: Db = Depends(get_db)) -> dict:
     user_id = request.session.get("uid")
     if user_id is None:
+        raise unauthorized()
+    # The server enforces the session lifetime (8 h, or 30 days with "Remember me"); a cookie
+    # without `exp` predates this rule and is treated as expired.
+    exp = request.session.get("exp")
+    if not isinstance(exp, int) or exp <= session_policy.now():
+        request.session.clear()
         raise unauthorized()
     user = load_user(db, user_id)
     if user is None or not user["is_active"]:

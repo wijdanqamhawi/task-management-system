@@ -2,10 +2,12 @@
 from fastapi import APIRouter, Depends, Request, Response
 from pydantic import BaseModel, EmailStr, Field, field_validator
 
+from app.config import get_settings
 from app.db import Db, get_db
 from app.deps import current_user
 from app.errors import ApiError
 from app.modules.users import service
+from app import session as session_policy
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
@@ -39,6 +41,7 @@ class LoginBody(BaseModel):
     email: str | None = None
     username: str | None = None
     password: str
+    remember: bool = False     # "Remember me": 30-day persistent session
 
 
 @router.post("/register", status_code=201)
@@ -57,8 +60,12 @@ def login(body: LoginBody, request: Request, db: Db = Depends(get_db)):
     user = service.authenticate(db, identifier, body.password)
     if user is None:
         raise ApiError(401, BAD_CREDENTIALS)
+    settings = get_settings()
+    lifetime = settings.remember_days * 86400 if body.remember else settings.session_max_age
     request.session.clear()                 # fresh session on login
     request.session["uid"] = user["user_id"]
+    request.session["remember"] = body.remember
+    request.session["exp"] = session_policy.now() + lifetime
     return service.user_view(user)
 
 

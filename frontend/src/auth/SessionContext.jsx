@@ -34,8 +34,8 @@ export function SessionProvider({ children }) {
 
   useEffect(() => { refresh(); }, [refresh]);
 
-  const login = useCallback(async (email, password) => {
-    const me = await loginRequest(email, password);
+  const login = useCallback(async (email, password, remember = false) => {
+    const me = await loginRequest(email, password, remember);
     setUser(me);
     return me;
   }, []);

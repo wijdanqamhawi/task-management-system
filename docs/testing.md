@@ -138,3 +138,16 @@ is **404**, not 403, so its existence is not disclosed (FR-053).
 | `GET /api/attachments/{id}` | **401** not signed in; **404** manager outside the project, member outside the project |
 | `POST /api/tasks/{id}/attachments` | **401** not signed in; **404** manager outside the project, member outside the project |
 | `DELETE /api/attachments/{id}` | **401** not signed in; **403** member, not assignee/uploader; **404** manager outside the project, member outside the project |
+
+
+## Scheduled notifications (isolated schema)
+
+`PKG_NOTIFICATION` scans every task in its schema and commits internally, so the scheduler is
+never run against `TMS_USER`. Its tests live in `backend/tests/scheduler` and run only in the
+empty `TMS_TEST` schema (created and installed by the steps in `database/test/README.md`, with
+credentials in the git-ignored `backend/.env.test`). Each test re-checks that the session user
+is `TMS_TEST`; without `.env.test` they are skipped. They cover the 24-hour reminder, overdue,
+idempotency, eligible assignees, deactivated users and unread counts, and pin the due-date
+semantics ("Option K") documented in the same README. The older whole-schema test in
+`tests/test_dashboard_notifications.py` is skipped unless the application itself is configured
+as `TMS_TEST`.

@@ -11,14 +11,15 @@
 import { api } from './client.js';
 
 /**
- * POST /api/auth/login — establishes the JSESSIONID session cookie (R-002).
+ * POST /api/auth/login — establishes the signed `tms_session` cookie (R-002). `remember`
+ * asks for a 30-day persistent session; otherwise it is a browser-session cookie (8 h cap).
  *
  * Returns the signed-in user on success. Throws ApiError with status 401 on bad
  * credentials AND on a deactivated account, with the same message either way, so the
  * response never reveals which credential was wrong (US1 scenario 2, FR-007).
  */
-export function login(email, password) {
-  return api.post('/auth/login', { email, password });
+export function login(email, password, remember = false) {
+  return api.post('/auth/login', { email, password, remember });
 }
 
 /**
@@ -35,6 +36,21 @@ export function login(email, password) {
  */
 export function register({ fullName, email, password }) {
   return api.post('/auth/register', { fullName, email, password });
+}
+
+/** POST /api/auth/forgot-password — same generic 202 whether or not the account exists. */
+export function forgotPassword(email) {
+  return api.post('/auth/forgot-password', { email });
+}
+
+/** POST /api/auth/reset-password/validate — is the emailed link still usable? (POST: no token in a URL) */
+export function validateResetToken(token) {
+  return api.post('/auth/reset-password/validate', { token });
+}
+
+/** POST /api/auth/reset-password — single-use token + new password (204). */
+export function resetPassword(token, password) {
+  return api.post('/auth/reset-password', { token, password });
 }
 
 /** POST /api/auth/logout — ends the session. */

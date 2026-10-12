@@ -232,8 +232,14 @@ def create_task(db: Db, user: dict, *, project_id: int, title: str, description:
 
 def update_task(db: Db, user: dict, task_id: int, fields: dict) -> dict:
     """`fields` holds only the keys the client sent (title, description, priority,
-    start_date, due_date). Status is never changed here (R-005)."""
+    start_date, due_date). Status is never changed here (R-005).
+
+    Editing task details is a Manager-of-the-project or Admin capability (FR-008b). A Member
+    (even the creator or an assignee) may only change status, comment, and add subtasks and
+    attachments (FR-008c)."""
     task = require_task_visible(db, user, task_id)
+    if not is_project_manager(db, user, task["project_id"]):
+        raise forbidden("Only a Manager of the project or an Admin may edit task details")
     start = fields.get("start_date", task["start_date"])
     due = fields.get("due_date", task["due_date"])
     _validate_dates(start, due)

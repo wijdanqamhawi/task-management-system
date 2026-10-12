@@ -16,6 +16,7 @@ erDiagram
     USERS        ||--o{ ATTACHMENTS      : uploaded
     USERS        ||--o{ NOTIFICATIONS    : receives
     TASKS        ||--o{ NOTIFICATIONS    : "refers to"
+    USERS        ||--o{ PASSWORD_RESET_TOKENS : "requests reset"
 
     ROLES {
         NUMBER   role_id      PK
@@ -111,4 +112,13 @@ erDiagram
         VARCHAR2  message
         CHAR      is_read         "Y | N"
         TIMESTAMP created_at
+    }
+    PASSWORD_RESET_TOKENS {
+        NUMBER    token_id   PK
+        NUMBER    user_id    FK
+        CHAR      token_hash "SHA-256 hex, unique; raw token never stored"
+        TIMESTAMP created_at
+        TIMESTAMP expires_at "created_at + 15 minutes"
+        TIMESTAMP used_at    "set once: single use"
+        VARCHAR2  request_ip
     }

@@ -76,11 +76,13 @@ export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  // Visual only: no requirement defines persistent sessions, so this value is not sent.
+  // Checked: 30-day persistent session. Unchecked: browser-session cookie (8 h server cap).
   const [remember, setRemember] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // /login?reset=1 is where a completed password reset lands.
+  const passwordWasReset = new URLSearchParams(window.location.search).get('reset') === '1';
 
   /** Client-side checks only guard against bad submits; the server validates for real. */
   function validate() {
@@ -116,7 +118,7 @@ export default function Login() {
 
     setSubmitting(true);
     try {
-      await login(email.trim(), password);
+      await login(email.trim(), password, remember);
 
       // Return the user to the page they originally asked for, if a guard sent them
       // here with ?next= (router/RouteGuard.jsx).
@@ -136,6 +138,12 @@ export default function Login() {
       <p className="login__subtitle">Sign in to your account</p>
 
       <form className="login__form" onSubmit={handleSubmit} noValidate>
+        {passwordWasReset && !formError && (
+          <div className="login__notice" role="status" aria-live="polite">
+            <p className="login__notice-title">Password updated</p>
+            <p className="login__notice-body">Sign in with your new password.</p>
+          </div>
+        )}
         {formError && (
           <p className="login__error" role="alert" aria-live="assertive">
             <span className="login__error-mark" aria-hidden="true">!</span>

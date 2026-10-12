@@ -32,6 +32,7 @@ erDiagram
     USERS        ||--o{ ATTACHMENTS      : uploaded
     USERS        ||--o{ NOTIFICATIONS    : receives
     TASKS        ||--o{ NOTIFICATIONS    : "refers to"
+    USERS        ||--o{ PASSWORD_RESET_TOKENS : "requests reset"
 
     ROLES {
         NUMBER   role_id      PK
@@ -128,6 +129,15 @@ erDiagram
         CHAR      is_read         "Y | N"
         TIMESTAMP created_at
     }
+    PASSWORD_RESET_TOKENS {
+        NUMBER    token_id   PK
+        NUMBER    user_id    FK
+        CHAR      token_hash "SHA-256 hex, unique; raw token never stored"
+        TIMESTAMP created_at
+        TIMESTAMP expires_at "created_at + 15 minutes"
+        TIMESTAMP used_at    "set once: single use"
+        VARCHAR2  request_ip
+    }
 ```
 
 ## Entities
@@ -150,6 +160,7 @@ it, so building it would add a write path no test could justify (Constitution I)
 | `COMMENTS` | Discussion on a task, with author and timestamp. |
 | `ATTACHMENTS` | File metadata. Bytes live on the filesystem, not in the database. |
 | `NOTIFICATIONS` | Recipient, trigger type, message, read flag. |
+| `PASSWORD_RESET_TOKENS` | Hashed single-use password-reset tokens (15-minute expiry). |
 
 ## Relationships
 
@@ -163,6 +174,7 @@ it, so building it would add a write path no test could justify (Constitution I)
 | TASKS → TASK_PRIORITY | Many tasks to one priority |
 | TASKS → SUBTASKS / COMMENTS / ATTACHMENTS | One to many, each cascading on delete |
 | USERS → NOTIFICATIONS | One user to many notifications |
+| USERS → PASSWORD_RESET_TOKENS | One user to many reset tokens, cascading on delete |
 
 Both many-to-many relationships use explicit join tables, as Constitution Principle IV
 requires: a task must be assignable to one or more users, and a project must support multiple
@@ -185,6 +197,7 @@ SQL, can violate them.
 | Deleting a task removes its subtasks, comments, attachments, assignees | `ON DELETE CASCADE` | SC-011 |
 | One scheduled notification per task/recipient/trigger | `uq_notifications_scheduled` | R-007 |
 | Only the five official notification triggers | `ck_notifications_trigger` | FR-054–FR-058 |
+| A reset token hash is unique; the raw token is never stored | `uq_prt_token_hash` | FR-002 |
 
 ## Verification
 

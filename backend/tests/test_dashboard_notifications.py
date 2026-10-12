@@ -5,6 +5,7 @@ the demo data currently holds.
 """
 import pytest
 
+from app.config import get_settings
 from app.modules.notifications import scheduler
 from tests.conftest import ADMIN, INACTIVE, MANAGER, MEMBER, MEMBER_OTHER, user_id
 
@@ -143,9 +144,17 @@ def test_read_unread_count_read_all_and_privacy(team, login):
     assert member.get("/api/notifications/unread-count").json()["unreadCount"] == 0
 
 
+# PKG_NOTIFICATION scans EVERY task in the schema and commits internally, so this test must
+# never run against real or demo data. It is skipped (before any fixture touches the
+# database) unless the application itself is configured to use the isolated TMS_TEST schema.
+# The full, guarded scheduler suite lives in tests/scheduler (database/test/README.md).
+@pytest.mark.skipif(
+    get_settings().db_user.strip().upper() != "TMS_TEST",
+    reason="runs the scheduler over the whole schema; only allowed against TMS_TEST")
 def test_scheduled_generation_is_idempotent(team, dbc):
     """The single most important notification assertion (R-007): running the job twice over an
     approaching-deadline task and an overdue task raises exactly one notification each."""
+    assert dbc.scalar("SELECT SYS_CONTEXT('USERENV','SESSION_USER') FROM dual") == "TMS_TEST"
     mgr, mid, pid = team["manager"], team["mid"], team["pid"]
     soon = mgr.post("/api/tasks", json={"projectId": pid, "title": "ZZTEST soon", "assigneeIds": [mid]}).json()["taskId"]
     late = mgr.post("/api/tasks", json={"projectId": pid, "title": "ZZTEST late", "assigneeIds": [mid]}).json()["taskId"]

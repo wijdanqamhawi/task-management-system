@@ -75,6 +75,9 @@ All non-2xx responses share one shape:
 | POST | `/api/auth/login` | Authenticate, establish session | Public | FR-002 |
 | POST | `/api/auth/logout` | End session | Authenticated | FR-002 |
 | GET | `/api/auth/me` | Current user, role, permissions | Authenticated | FR-003 |
+| POST | `/api/auth/forgot-password` | Request a password-reset e-mail | Public | FR-002 |
+| POST | `/api/auth/reset-password/validate` | Is a reset link still usable? | Public | FR-002 |
+| POST | `/api/auth/reset-password` | Set a new password with a reset token | Public | FR-002 |
 
 **`POST /api/auth/register`** → `201`
 
@@ -88,10 +91,29 @@ from the email's local part and made unique. `password` must be 8 to 72 bytes.
 Returns the created user without `password`. `409` if username or email is taken. New accounts
 receive the `MEMBER` role and `isActive: true` **[CLARIFIED, FR-008]**.
 
-**`POST /api/auth/login`** body `{ "email": "...", "password": "..." }` (`username` is accepted
-in place of `email`) → `200` with the user body and a `Set-Cookie` session header.
+**`POST /api/auth/login`** body `{ "email": "...", "password": "...", "remember": false }`
+(`username` is accepted in place of `email`; `remember` is optional) → `200` with the user body
+and a `Set-Cookie` session header. Without `remember` the cookie is a browser-session cookie and
+the session expires server-side after 8 hours; with `remember: true` the cookie is persistent
+and the session lasts 30 days.
 `401` on bad credentials **and** on a deactivated account, with the same message either way
 (US1 scenario 2: never reveal which credential was wrong; FR-007).
+
+**`POST /api/auth/forgot-password`** body `{ "email": "..." }` → `202` with the same
+`{ "message": ... }` whether or not the account exists (no account enumeration); an e-mail
+with a single-use link `<app>/reset-password#token=...` valid for 15 minutes is sent to an
+active account. `400` for a malformed address, `429` after 10 requests/hour from one IP
+(3/hour per address are silently dropped). Only the SHA-256 hash of the token is stored.
+
+**`POST /api/auth/reset-password/validate`** body `{ "token": "..." }` → `200`
+`{ "valid": true|false }`. A POST so the token never appears in a URL or access log.
+
+**`POST /api/auth/reset-password`** body `{ "token": "...", "password": "..." }` → `204`.
+`400` with `This password reset link is invalid or has expired.` for an unknown, expired or
+already used token (identical for all three); `400` with `fieldErrors.password` when the
+password breaks the policy (8 characters to 72 bytes) — the token is not consumed.
+`429` after 20 failed attempts/hour from one IP. A successful reset ends every session
+issued before it (the session carries a fingerprint of the password it was created with).
 
 ---
 

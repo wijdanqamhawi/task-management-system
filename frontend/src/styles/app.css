@@ -143,3 +143,15 @@ a.dash__nav-item { text-decoration: none; }
   .page-head__actions .btn { flex: 1 1 auto; justify-content: center; }
 }
 .modal { max-width: min(560px, 100%); }
+
+/* Users: stacked cards on narrow screens so role and action controls stay on screen. */
+.user-cards { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-3); }
+.user-card {
+  border: 1px solid var(--c-border); border-radius: var(--radius-md);
+  padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2);
+}
+.user-card__head { display: flex; justify-content: space-between; align-items: center; gap: var(--sp-3); }
+.user-card__head strong { overflow-wrap: anywhere; }
+.user-card__meta { margin: 0; color: var(--c-text-muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
+.user-card__controls { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
+.user-card__controls .select { flex: 1 1 140px; min-width: 0; }

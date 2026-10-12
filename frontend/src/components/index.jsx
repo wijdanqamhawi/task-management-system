@@ -1,4 +1,5 @@
 // T030 — Shared presentational components. Plain React, no UI library (Constitution II).
+import { useEffect, useRef } from 'react';
 import '../styles/components.css';
 
 export function Button({ variant, className, children, ...rest }) {
@@ -65,11 +66,60 @@ export function Badge({ value, kind, children }) {
   return <span className={cls}>{children ?? value}</span>;
 }
 
+const FOCUSABLE = 'a[href],button:not([disabled]),input:not([disabled]):not([type="hidden"]),'
+  + 'select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+
+/**
+ * Accessible modal dialog. While open: Escape closes it (when closable), Tab/Shift+Tab are
+ * trapped inside it, the page behind does not scroll, and focus returns to the element that
+ * opened it on close. `onClose` is undefined while a save is in flight, which disables
+ * Escape and backdrop-click closing together.
+ */
 export function Modal({ title, onClose, children }) {
+  const dialogRef = useRef(null);
+  // Captured during the first render, i.e. before any child's autoFocus moves focus.
+  const triggerRef = useRef(typeof document === 'undefined' ? null : document.activeElement);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
+
+  useEffect(() => {
+    const dialog = dialogRef.current;
+    const trigger = triggerRef.current;
+    const focusables = () => [...dialog.querySelectorAll(FOCUSABLE)]
+      .filter((el) => el.offsetParent !== null || el === document.activeElement);
+
+    if (!dialog.contains(document.activeElement)) (focusables()[0] ?? dialog).focus();
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    function onKeyDown(event) {
+      if (event.key === 'Escape') {
+        if (onCloseRef.current) { event.stopPropagation(); onCloseRef.current(); }
+        return;
+      }
+      if (event.key !== 'Tab') return;
+      const items = focusables();
+      if (items.length === 0) { event.preventDefault(); dialog.focus(); return; }
+      const first = items[0];
+      const last = items[items.length - 1];
+      const active = document.activeElement;
+      if (!dialog.contains(active)) { event.preventDefault(); first.focus(); }
+      else if (event.shiftKey && (active === first || active === dialog)) { event.preventDefault(); last.focus(); }
+      else if (!event.shiftKey && active === last) { event.preventDefault(); first.focus(); }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('keydown', onKeyDown);
+      document.body.style.overflow = previousOverflow;
+      if (trigger && trigger.isConnected && typeof trigger.focus === 'function') trigger.focus();
+    };
+  }, []);
+
   return (
     <div className="modal__backdrop" onClick={onClose}>
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}
-           onClick={(e) => e.stopPropagation()}>
+      <div className="modal" ref={dialogRef} tabIndex={-1} role="dialog" aria-modal="true"
+           aria-label={title} onClick={(e) => e.stopPropagation()}>
         {title && <h2 className="page-title">{title}</h2>}
         {children}
       </div>

@@ -1,9 +1,10 @@
 /* User administration (Admin only): roles and activation. FR-004, FR-006, FR-008a. */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
-import { Badge, Button, Select, Table, TextInput } from '../components/index.jsx';
+import { Badge, Button, EmptyState, Select, Table, TextInput } from '../components/index.jsx';
 import { Async, ConfirmDialog, Notice, PageHeader, Pagination } from '../components/common.jsx';
 import { useApi } from '../hooks/useApi.js';
+import { useMediaQuery } from '../hooks/useMediaQuery.js';
 import { useSession } from '../auth/SessionContext.jsx';
 import { activateUser, deactivateUser, listUsers, setRole } from '../api/users.js';
 import { ROLES, ROLE_LABELS } from '../constants.js';
@@ -20,6 +21,8 @@ export default function Users() {
   const [notice, setNotice] = useState('');
   const [busyId, setBusyId] = useState(null);
   const [confirm, setConfirm] = useState(null);
+  // On a phone a six-column table scrolls sideways and hides the controls: use cards instead.
+  const compact = useMediaQuery('(max-width: 767px)');
 
   const state = useApi((signal) => listUsers({ search: applied, page, size: 20 }, { signal }), [applied, page]);
 
@@ -82,8 +85,30 @@ export default function Users() {
         <Async state={state}>
           {(data) => (
             <>
-              <Table columns={columns} rows={data.content.map((u) => ({ ...u, id: u.userId }))}
-                     empty={applied ? 'No users match your search.' : 'No users yet.'} />
+              {compact ? (
+                data.content.length === 0
+                  ? <EmptyState message={applied ? 'No users match your search.' : 'No users yet.'} />
+                  : (
+                    <ul className="user-cards" aria-label="Users">
+                      {data.content.map((u) => (
+                        <li key={u.userId} className="user-card">
+                          <div className="user-card__head">
+                            <strong>{u.fullName}</strong>
+                            {u.isActive ? <Badge value="ACTIVE">Active</Badge> : <Badge kind="inactive">Deactivated</Badge>}
+                          </div>
+                          <p className="user-card__meta">{u.username} · {u.email}</p>
+                          <div className="user-card__controls">
+                            {columns.find((c) => c.key === 'role').render(u)}
+                            {columns.find((c) => c.key === 'actions').render(u)}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )
+              ) : (
+                <Table columns={columns} rows={data.content.map((u) => ({ ...u, id: u.userId }))}
+                       empty={applied ? 'No users match your search.' : 'No users yet.'} />
+              )}
               <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPage={setPage} />
             </>
           )}

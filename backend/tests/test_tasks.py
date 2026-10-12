@@ -74,14 +74,36 @@ def test_invisible_task_is_404_everywhere_not_403(world):
 
 def test_put_updates_fields_and_rejects_status(world):
     tid = make_task(world["manager"], world["pid"])["taskId"]
-    ok = world["member"].put(f"/api/tasks/{tid}", json={"title": "ZZTEST edited",
-                                                        "priority": "LOW", "dueDate": "2026-12-01"})
+    ok = world["manager"].put(f"/api/tasks/{tid}", json={"title": "ZZTEST edited",
+                                                         "priority": "LOW", "dueDate": "2026-12-01"})
     assert ok.status_code == 200
     assert ok.json()["title"] == "ZZTEST edited" and ok.json()["priority"] == "LOW"
     assert ok.json()["status"] == "TO_DO"
-    bad = world["member"].put(f"/api/tasks/{tid}", json={"title": "ZZTEST edited", "status": "REVIEW"})
+    bad = world["manager"].put(f"/api/tasks/{tid}", json={"title": "ZZTEST edited", "status": "REVIEW"})
     assert bad.status_code == 400
-    assert world["member"].get(f"/api/tasks/{tid}").json()["status"] == "TO_DO"
+    assert world["manager"].get(f"/api/tasks/{tid}").json()["status"] == "TO_DO"
+
+
+def test_only_manager_of_project_or_admin_may_edit_task_details(world, login):
+    """FR-008b/c: a Member may not edit details, even as creator or as an assignee."""
+    pid, member = world["pid"], world["member"]
+    assigned = make_task(world["manager"], pid, assigneeIds=[world["member_id"]])["taskId"]
+    created = make_task(member, pid)["taskId"]                  # created by the member
+    for tid in (assigned, created):
+        r = member.put(f"/api/tasks/{tid}", json={"title": "ZZTEST member edit"})
+        assert r.status_code == 403, r.text
+        assert world["manager"].get(f"/api/tasks/{tid}").json()["title"] == "ZZTEST task"
+    # An outsider still gets 404 (invisible task), never 403.
+    assert world["outsider"].put(f"/api/tasks/{created}", json={"title": "x"}).status_code == 404
+    # A Manager of another project is not a manager of this one.
+    other = login("n.darwish@example.org")
+    assert other.put(f"/api/tasks/{created}", json={"title": "x"}).status_code == 404
+    # Admin may edit; the member's permitted operations keep working.
+    admin = login(ADMIN)
+    assert admin.put(f"/api/tasks/{created}", json={"title": "ZZTEST admin edit"}).status_code == 200
+    assert member.patch(f"/api/tasks/{assigned}/status", json={"status": "IN_PROGRESS"}).status_code == 204
+    assert member.post(f"/api/tasks/{assigned}/comments", json={"body": "ZZTEST ok"}).status_code == 201
+    assert member.post(f"/api/tasks/{assigned}/subtasks", json={"title": "ZZTEST s"}).status_code == 201
 
 
 def test_every_status_is_reachable_in_both_directions_and_others_are_rejected(world):

@@ -3,9 +3,10 @@
  * (FR-017..FR-026, FR-034). A task outside the caller's projects is a 404 from the API, which
  * this screen shows as "Task not found" without saying whether it exists (FR-053).
  *
- * Controls follow the roles but the API is the authority: status by an assignee, a Manager of
- * the project or an Admin; assignment by a Manager of the project or an Admin; delete by the
- * creator, a Manager of the project or an Admin.
+ * Controls follow the roles but the API is the authority: edit and assignment by a Manager of
+ * the project or an Admin (FR-008b; a Member never edits details, FR-008c); status by an
+ * assignee, a Manager of the project or an Admin; delete by the creator, a Manager of the
+ * project or an Admin.
  */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
@@ -113,7 +114,7 @@ export default function Task({ id }) {
                   {' · '}created {fmtDateTime(t.createdAt)}</>}
                 actions={(
                   <>
-                    <Button onClick={() => setEditing(true)}>Edit</Button>
+                    {manager && <Button onClick={() => setEditing(true)}>Edit</Button>}
                     {canDeleteTask(user, t, visible.ids) && (
                       <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
                     )}

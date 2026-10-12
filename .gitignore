@@ -20,7 +20,7 @@ logs/
 !.env.example
 
 # --- Attachments written at runtime (never committed) ---
-attachments/
+/backend/attachments/
 
 # --- IDE ---
 .idea/

@@ -38,6 +38,21 @@ export function register({ fullName, email, password }) {
   return api.post('/auth/register', { fullName, email, password });
 }
 
+/** POST /api/auth/forgot-password — same generic 202 whether or not the account exists. */
+export function forgotPassword(email) {
+  return api.post('/auth/forgot-password', { email });
+}
+
+/** POST /api/auth/reset-password/validate — is the emailed link still usable? (POST: no token in a URL) */
+export function validateResetToken(token) {
+  return api.post('/auth/reset-password/validate', { token });
+}
+
+/** POST /api/auth/reset-password — single-use token + new password (204). */
+export function resetPassword(token, password) {
+  return api.post('/auth/reset-password', { token, password });
+}
+
 /** POST /api/auth/logout — ends the session. */
 export function logout() {
   return api.post('/auth/logout');

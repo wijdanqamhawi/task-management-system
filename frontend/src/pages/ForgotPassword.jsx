@@ -1,18 +1,18 @@
 /*
  * Forgot password page.
  *
- * UI ONLY. There is no password-reset endpoint and no email service, and this page does
- * not pretend otherwise: submitting a valid address shows an honest notice explaining
- * that the feature is unavailable until backend integration exists. No request is sent,
- * no fake success is shown, and no new dependency is introduced (Constitution II).
+ * Posts the address to POST /api/auth/forgot-password. The server answers identically whether
+ * or not an account exists (no account enumeration), so this page can only say that a link
+ * "will be emailed" to an existing account; it never claims a message definitely went out.
  *
- * Shares components/AuthShell.jsx with the Login page, so the visual identity — colours,
- * typography, inputs, button, spacing and responsive behaviour — is identical by
- * construction rather than by duplication.
+ * Shares components/AuthShell.jsx with Login and Register, so the visual identity is identical
+ * by construction rather than by duplication.
  */
 import { useState } from 'react';
 import { Button, Field, TextInput } from '../components/index.jsx';
 import AuthShell from '../components/AuthShell.jsx';
+import { forgotPassword } from '../api/auth.js';
+import { ApiError } from '../api/client.js';
 import { Link } from '../router/Link.jsx';
 import { ROUTES } from '../router/routes.js';
 
@@ -22,26 +22,36 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export default function ForgotPassword() {
   const [email, setEmail] = useState('');
   const [fieldError, setFieldError] = useState('');
-  const [submitted, setSubmitted] = useState(false);
+  const [formError, setFormError] = useState('');
+  const [message, setMessage] = useState('');
+  const [submitting, setSubmitting] = useState(false);
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
+    setMessage('');
+    setFormError('');
 
     const value = email.trim();
-    if (!value) {
-      setFieldError('Enter your email address.');
-      setSubmitted(false);
-      return;
-    }
-    if (!EMAIL_PATTERN.test(value)) {
-      setFieldError('Enter a valid email address.');
-      setSubmitted(false);
-      return;
-    }
-
+    if (!value) { setFieldError('Enter your email address.'); return; }
+    if (!EMAIL_PATTERN.test(value)) { setFieldError('Enter a valid email address.'); return; }
     setFieldError('');
-    // Deliberately no network call: there is nothing to call yet.
-    setSubmitted(true);
+
+    setSubmitting(true);
+    try {
+      const result = await forgotPassword(value);
+      setMessage(result?.message
+        || 'If an account exists for that email address, a password reset link will be emailed shortly.');
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 429) {
+        setFormError('Too many requests. Please wait a while and try again.');
+      } else if (error instanceof ApiError && error.status === 400) {
+        setFieldError('Enter a valid email address.');
+      } else {
+        setFormError('We could not process your request. Please try again.');
+      }
+    } finally {
+      setSubmitting(false);
+    }
   }
 
   return (
@@ -52,15 +62,19 @@ export default function ForgotPassword() {
       </p>
 
       <form className="login__form" onSubmit={handleSubmit} noValidate>
-        {submitted && (
+        {message && (
           <div className="login__notice" role="status" aria-live="polite">
-            <p className="login__notice-title">Password reset is not available yet</p>
+            <p className="login__notice-title">Check your email</p>
             <p className="login__notice-body">
-              This screen is built, but the reset service behind it is not. No email has
-              been sent. To regain access, ask your department administrator to reset your
-              password.
+              {message} The link works once and expires in 15 minutes.
             </p>
           </div>
+        )}
+        {formError && (
+          <p className="login__error" role="alert" aria-live="assertive">
+            <span className="login__error-mark" aria-hidden="true">!</span>
+            <span>{formError}</span>
+          </p>
         )}
 
         <Field label="Email" error={fieldError}>
@@ -79,20 +93,21 @@ export default function ForgotPassword() {
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);
-                if (submitted) setSubmitted(false);
+                if (message) setMessage('');
               }}
               placeholder="Enter your email"
               autoComplete="username"
               autoCapitalize="none"
               spellCheck="false"
+              disabled={submitting}
               aria-invalid={Boolean(fieldError)}
               required
             />
           </span>
         </Field>
 
-        <Button type="submit" variant="primary" className="login__submit">
-          Send Reset Link
+        <Button type="submit" variant="primary" className="login__submit" disabled={submitting}>
+          {submitting ? 'Sending…' : 'Send Reset Link'}
         </Button>
       </form>
 

@@ -81,6 +81,8 @@ export default function Login() {
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  // /login?reset=1 is where a completed password reset lands.
+  const passwordWasReset = new URLSearchParams(window.location.search).get('reset') === '1';
 
   /** Client-side checks only guard against bad submits; the server validates for real. */
   function validate() {
@@ -136,6 +138,12 @@ export default function Login() {
       <p className="login__subtitle">Sign in to your account</p>
 
       <form className="login__form" onSubmit={handleSubmit} noValidate>
+        {passwordWasReset && !formError && (
+          <div className="login__notice" role="status" aria-live="polite">
+            <p className="login__notice-title">Password updated</p>
+            <p className="login__notice-body">Sign in with your new password.</p>
+          </div>
+        )}
         {formError && (
           <p className="login__error" role="alert" aria-live="assertive">
             <span className="login__error-mark" aria-hidden="true">!</span>

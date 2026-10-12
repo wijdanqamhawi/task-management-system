@@ -17,6 +17,10 @@ def _required(name: str) -> str:
     return value
 
 
+def _flag(name: str) -> bool:
+    return (os.getenv(name) or "").strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(frozen=True)
 class Settings:
     db_user: str
@@ -36,6 +40,16 @@ class Settings:
     session_max_age: int = 8 * 60 * 60              # server-side lifetime WITHOUT "Remember me"
     remember_days: int = 30                         # server-side lifetime WITH "Remember me"
     cookie_secure: bool = False                     # TMS_COOKIE_SECURE=true behind HTTPS
+    # Password reset e-mail (SMTP). Unset host => reset requests send nothing.
+    smtp_host: str = ""
+    smtp_port: int = 587
+    smtp_user: str = ""
+    smtp_password: str = ""
+    smtp_security: str = "starttls"                # starttls | ssl | none
+    mail_from: str = ""
+    app_base_url: str = ""                         # origin used in the e-mailed reset link
+    reset_token_minutes: int = 15
+    trust_proxy: bool = False                       # honour X-Forwarded-For for rate limits
 
 
 _settings: Settings | None = None
@@ -54,7 +68,15 @@ def get_settings() -> Settings:
             session_secret=_required("TMS_SESSION_SECRET"),
             attachment_dir=attachment_dir,
             remember_days=int(os.getenv("TMS_REMEMBER_DAYS") or 30),
-            cookie_secure=(os.getenv("TMS_COOKIE_SECURE") or "").strip().lower()
-            in ("1", "true", "yes", "on"),
+            cookie_secure=_flag("TMS_COOKIE_SECURE"),
+            smtp_host=(os.getenv("TMS_SMTP_HOST") or "").strip(),
+            smtp_port=int(os.getenv("TMS_SMTP_PORT") or 587),
+            smtp_user=os.getenv("TMS_SMTP_USER") or "",
+            smtp_password=os.getenv("TMS_SMTP_PASSWORD") or "",
+            smtp_security=((os.getenv("TMS_SMTP_SECURITY") or "starttls").strip().lower()),
+            mail_from=(os.getenv("TMS_MAIL_FROM") or "").strip(),
+            app_base_url=(os.getenv("TMS_APP_BASE_URL") or "").strip(),
+            reset_token_minutes=int(os.getenv("TMS_RESET_TOKEN_MINUTES") or 15),
+            trust_proxy=_flag("TMS_TRUST_PROXY"),
         )
     return _settings

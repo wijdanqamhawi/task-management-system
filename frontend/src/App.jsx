@@ -17,6 +17,7 @@ import AppLayout from './components/AppLayout.jsx';
 import { Link } from './router/Link.jsx';
 import Login from './pages/Login.jsx';
 import ForgotPassword from './pages/ForgotPassword.jsx';
+import ResetPassword from './pages/ResetPassword.jsx';
 import Register from './pages/Register.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Profile from './pages/Profile.jsx';
@@ -36,6 +37,7 @@ const guarded = (path, render) => ({
 const routes = [
   { path: ROUTES.LOGIN, element: () => <Login /> },
   { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
+  { path: ROUTES.RESET_PASSWORD, element: () => <ResetPassword /> },
   { path: ROUTES.REGISTER, element: () => <Register /> },
   { path: ROUTES.HOME, element: () => <Home /> },
   guarded(ROUTES.DASHBOARD, () => <Dashboard />),

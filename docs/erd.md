@@ -16,6 +16,8 @@ and matches the schema installed by [`database/ddl/run_all.sql`](../database/ddl
 ```mermaid
 erDiagram
     ROLES        ||--o{ USERS            : "held by"
+    ROLES        ||--o{ ROLE_PERMISSIONS : "granted via"
+    PERMISSIONS  ||--o{ ROLE_PERMISSIONS : "granted via"
     USERS        ||--o{ PROJECT_MEMBERS  : "member via"
     PROJECTS     ||--o{ PROJECT_MEMBERS  : "has member via"
     USERS        ||--o{ PROJECTS         : "created"
@@ -38,6 +40,16 @@ erDiagram
         NUMBER   role_id      PK
         VARCHAR2 role_name    UK "ADMIN | MANAGER | MEMBER"
         VARCHAR2 description
+    }
+    PERMISSIONS {
+        NUMBER   permission_id   PK
+        VARCHAR2 permission_code UK "e.g. TASK_ASSIGN; upper case"
+        VARCHAR2 description
+    }
+    ROLE_PERMISSIONS {
+        NUMBER    role_id       PK_FK
+        NUMBER    permission_id PK_FK
+        TIMESTAMP granted_at
     }
     USERS {
         NUMBER    user_id       PK
@@ -142,13 +154,15 @@ erDiagram
 
 ## Entities
 
-Twelve entities are modelled. `ACTIVITY_LOG` appears in the official list of *possible*
+Fifteen entities are modelled. `ACTIVITY_LOG` appears in the official list of *possible*
 entities but is deliberately not modelled: no functional requirement reads from or writes to
 it, so building it would add a write path no test could justify (Constitution I).
 
 | Entity | Purpose |
 |--------|---------|
 | `ROLES` | The three roles: ADMIN, MANAGER, MEMBER. Reference data, seeded, immutable. |
+| `PERMISSIONS` | Catalogue of global capabilities (e.g. `TASK_ASSIGN`), identified by a unique upper-case code. Reference data. |
+| `ROLE_PERMISSIONS` | Join table: roles ↔ permissions. Which capabilities each role holds. |
 | `USERS` | Identity, BCrypt password hash, profile, active flag, and exactly one role. |
 | `PROJECTS` | Name, description, status, start and end dates, creator. |
 | `PROJECT_MEMBERS` | Join table: users ↔ projects. Also defines task-sharing visibility. |
@@ -167,6 +181,7 @@ it, so building it would add a write path no test could justify (Constitution I)
 | Relationship | Cardinality |
 |--------------|-------------|
 | USERS → ROLES | Many users to one role |
+| ROLES ↔ PERMISSIONS via ROLE_PERMISSIONS | **Many-to-many** |
 | USERS ↔ PROJECTS via PROJECT_MEMBERS | **Many-to-many** |
 | PROJECTS → TASKS | One project to many tasks |
 | USERS ↔ TASKS via TASK_ASSIGNEES | **Many-to-many** |
@@ -176,9 +191,23 @@ it, so building it would add a write path no test could justify (Constitution I)
 | USERS → NOTIFICATIONS | One user to many notifications |
 | USERS → PASSWORD_RESET_TOKENS | One user to many reset tokens, cascading on delete |
 
-Both many-to-many relationships use explicit join tables, as Constitution Principle IV
-requires: a task must be assignable to one or more users, and a project must support multiple
-members.
+All three many-to-many relationships use explicit join tables, as Constitution Principle IV
+requires: a task must be assignable to one or more users, a project must support multiple
+members, and a role must hold several permissions.
+
+### Permissions are global; resource rules stay in the application
+
+A row in `ROLE_PERMISSIONS` says a role *may ever* perform an action (e.g. MANAGER holds
+`TASK_ASSIGN`). It does not say *on which row*. The row-level rules depend on `PROJECT_MEMBERS`,
+`TASK_ASSIGNEES`, `TASKS.created_by` and `ATTACHMENTS.uploaded_by` and are not replaced by
+permissions: a MANAGER manages a project only if they are a member of it, an assignee may change
+the status of their own task, and a creator or uploader may delete their own task or file
+(`*_OWN`). `PROJECT_VIEW_ALL` and `PROJECT_MANAGE_ALL` are the ADMIN bypass of the membership
+rule. The permission catalogue and the grants are in
+[`database/seed/rbac_data.sql`](../database/seed/rbac_data.sql); the schema is
+[`database/ddl/09_rbac.sql`](../database/ddl/09_rbac.sql); an existing database is upgraded with
+[`database/migrations/001_rbac_permissions.sql`](../database/migrations/001_rbac_permissions.sql).
+The application does not read these tables yet (RBAC Phase 1).
 
 ## Integrity guarantees enforced in the database
 
@@ -192,6 +221,8 @@ SQL, can violate them.
 | Project end date not before start date | `ck_projects_dates` | US2 scenario 5 |
 | Task due date not before start date | `ck_tasks_dates` | US3 scenario 5 |
 | Unique username and email | `uq_users_username`, `uq_users_email` | FR-001 |
+| A permission code is unique and upper case | `uq_permissions_code`, `ck_permissions_code` | RBAC |
+| A role holds a given permission at most once; both sides must exist | `pk_role_permissions`, `fk_rp_role`, `fk_rp_permission` | RBAC |
 | A user joins a project at most once | `pk_project_members` | FR-014 |
 | No duplicate task assignment | `pk_task_assignees` | FR-019 |
 | Deleting a task removes its subtasks, comments, attachments, assignees | `ON DELETE CASCADE` | SC-011 |

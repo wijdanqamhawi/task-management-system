@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, File, Response, UploadFile
 from fastapi.responses import FileResponse
 
 from app.common.access import is_project_manager, require_task_visible
+from app.common.permissions import ATTACHMENT_DELETE_ANY, ATTACHMENT_DELETE_OWN, has_permission
 from app.config import get_settings
 from app.db import Db, get_db
 from app.deps import current_user
@@ -101,8 +102,9 @@ def delete_attachment(attachment_id: int, user: dict = Depends(current_user),
                       db: Db = Depends(get_db)):
     row = _load(db, user, attachment_id)
     task = require_task_visible(db, user, row["task_id"])
-    if not (row["uploaded_by"] == user["user_id"]
-            or is_project_manager(db, user, task["project_id"])):
+    uploader = (row["uploaded_by"] == user["user_id"]
+                and has_permission(user, ATTACHMENT_DELETE_OWN))
+    if not (uploader or is_project_manager(db, user, task["project_id"], ATTACHMENT_DELETE_ANY)):
         raise forbidden()
     db.execute("DELETE FROM attachments WHERE attachment_id = :id", {"id": attachment_id})
     db.commit()

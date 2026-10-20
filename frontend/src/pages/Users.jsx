@@ -1,4 +1,5 @@
-/* User administration (Admin only): roles and activation. FR-004, FR-006, FR-008a. */
+/* User administration: roles (USER_ROLE_ASSIGN) and activation (USER_STATUS_MANAGE), each gated
+ * separately. FR-004, FR-006, FR-008a. */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
 import { Badge, Button, EmptyState, Select, Table, TextInput } from '../components/index.jsx';
@@ -9,6 +10,7 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { activateUser, deactivateUser, listUsers, setRole } from '../api/users.js';
 import { ROLES, ROLE_LABELS } from '../constants.js';
 import { errorMessage } from '../utils/format.js';
+import { canAssignRoles, canManageUserStatus } from '../utils/permissions.js';
 
 const ROLE_OPTIONS = ROLES.map((r) => ({ value: r, label: ROLE_LABELS[r] }));
 
@@ -47,18 +49,20 @@ export default function Users() {
     { key: 'username', header: 'Username' },
     { key: 'email', header: 'Email' },
     { key: 'role', header: 'Role',
-      render: (u) => (
-        <Select aria-label={`Role of ${u.fullName}`} value={u.role} options={ROLE_OPTIONS}
-                disabled={u.userId === me.userId || busyId === u.userId}
-                onChange={(e) => run(u.userId, () => setRole(u.userId, e.target.value),
-                                     `${u.fullName} is now ${ROLE_LABELS[e.target.value]}.`)} />
-      ) },
+      render: (u) => (canAssignRoles(me)
+        ? (
+          <Select aria-label={`Role of ${u.fullName}`} value={u.role} options={ROLE_OPTIONS}
+                  disabled={u.userId === me.userId || busyId === u.userId}
+                  onChange={(e) => run(u.userId, () => setRole(u.userId, e.target.value),
+                                       `${u.fullName} is now ${ROLE_LABELS[e.target.value]}.`)} />
+        )
+        : <Badge value={u.role}>{ROLE_LABELS[u.role]}</Badge>) },
     { key: 'isActive', header: 'Status',
       render: (u) => (u.isActive
         ? <Badge value="ACTIVE">Active</Badge>
         : <Badge kind="inactive">Deactivated</Badge>) },
     { key: 'actions', header: '',
-      render: (u) => (u.isActive
+      render: (u) => (!canManageUserStatus(me) ? null : u.isActive
         ? <Button type="button" disabled={u.userId === me.userId || busyId === u.userId}
                   title={u.userId === me.userId ? 'You cannot deactivate yourself' : undefined}
                   onClick={() => setConfirm(u)}>Deactivate</Button>

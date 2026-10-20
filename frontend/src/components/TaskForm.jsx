@@ -1,6 +1,6 @@
 /*
  * Create / edit task form in a modal (FR-016..FR-023).
- * Creating: pick a project, and (only if you manage that project) assignees. A Member may
+ * Creating: pick a project, and (only with TASK_ASSIGN and manager scope of it) assignees. A Member may
  * create tasks but not assign them to others (FR-008c, FR-032), so the picker is hidden for them.
  * Editing never changes the status: that is a separate control (R-005).
  */
@@ -9,7 +9,7 @@ import { Button, DateInput, Field, Modal, Select, TextArea, TextInput } from './
 import { Notice, PRIORITY_OPTIONS } from './common.jsx';
 import { ApiError } from '../api/client.js';
 import { listMembers } from '../api/projects.js';
-import { isManagerOf } from '../utils/permissions.js';
+import { canAssign } from '../utils/permissions.js';
 import { errorMessage } from '../utils/format.js';
 
 export default function TaskForm({ task, projects = [], defaultProjectId, user, managedIds, onSubmit, onClose }) {
@@ -29,17 +29,17 @@ export default function TaskForm({ task, projects = [], defaultProjectId, user, 
   const [saving, setSaving] = useState(false);
 
   const projectId = Number(form.projectId) || null;
-  const canAssign = !editing && projectId != null && isManagerOf(user, projectId, managedIds);
+  const mayAssign = !editing && projectId != null && canAssign(user, projectId, managedIds);
 
   useEffect(() => {
     setAssigneeIds([]);
-    if (!canAssign) { setMembers([]); return undefined; }
+    if (!mayAssign) { setMembers([]); return undefined; }
     const controller = new AbortController();
     listMembers(projectId, { signal: controller.signal })
       .then((list) => setMembers(list.filter((m) => m.isActive)))
       .catch(() => setMembers([]));
     return () => controller.abort();
-  }, [projectId, canAssign]);
+  }, [projectId, mayAssign]);
 
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
   const toggle = (id) => setAssigneeIds((ids) => (ids.includes(id) ? ids.filter((x) => x !== id) : [...ids, id]));
@@ -65,7 +65,7 @@ export default function TaskForm({ task, projects = [], defaultProjectId, user, 
     setSaving(true);
     setFormError('');
     try {
-      await onSubmit(editing ? body : { ...body, projectId, assigneeIds: canAssign ? assigneeIds : [] });
+      await onSubmit(editing ? body : { ...body, projectId, assigneeIds: mayAssign ? assigneeIds : [] });
     } catch (error) {
       if (error instanceof ApiError && error.fieldErrors) setErrors(error.fieldErrors);
       else setFormError(errorMessage(error));
@@ -106,7 +106,7 @@ export default function TaskForm({ task, projects = [], defaultProjectId, user, 
         <Field label="Due date" error={errors.dueDate}>
           <DateInput value={form.dueDate} onChange={set('dueDate')} />
         </Field>
-        {canAssign && (
+        {mayAssign && (
           <div className="span-2">
             <Field label="Assign to" error={errors.assigneeIds}>
               <div className="check-list" role="group" aria-label="Assignees">

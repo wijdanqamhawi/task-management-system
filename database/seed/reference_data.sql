@@ -19,8 +19,15 @@ INSERT INTO task_priority (priority_code, sort_order) VALUES ('HIGH',   3);
 
 COMMIT;
 
+-- RBAC: permission catalogue and role -> permission grants (idempotent; needs the roles above
+-- and ddl/09_rbac.sql). Shared with migrations/001_rbac_permissions.sql.
+@@rbac_data.sql
+SET DEFINE OFF
+
 -- Verification required by quickstart.md § First-time setup.
-PROMPT Reference data loaded. Expect 3 roles, 4 statuses, 3 priorities:
+PROMPT Reference data loaded. Expect 3 roles, 4 statuses, 3 priorities, 21 permissions, 47 role grants:
 SELECT 'roles'      AS table_name, COUNT(*) AS row_count FROM roles
 UNION ALL SELECT 'task_status',   COUNT(*) FROM task_status
-UNION ALL SELECT 'task_priority', COUNT(*) FROM task_priority;
+UNION ALL SELECT 'task_priority', COUNT(*) FROM task_priority
+UNION ALL SELECT 'permissions',      COUNT(*) FROM permissions
+UNION ALL SELECT 'role_permissions', COUNT(*) FROM role_permissions;

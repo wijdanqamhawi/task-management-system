@@ -5,6 +5,7 @@ transaction of the action that causes them (R-007), so a rolled-back action leav
 notification. The two date-driven triggers (DEADLINE, OVERDUE) come from PKG_NOTIFICATION.
 """
 from app.common.access import task_visibility_clause
+from app.common.permissions import PROJECT_VIEW_ALL
 from app.common.paging import PageParams, page_response
 from app.db import Db
 from app.errors import not_found
@@ -25,12 +26,16 @@ def notify(db: Db, *, task: dict, recipient_ids, trigger_type: str, message: str
     binds = {f"r{n}": uid for n, uid in enumerate(ids)}
     in_list = ", ".join(f":{k}" for k in binds)
     eligible = db.query(
-        f"""SELECT u.user_id FROM users u JOIN roles r ON r.role_id = u.role_id
+        f"""SELECT u.user_id FROM users u
              WHERE u.user_id IN ({in_list}) AND u.is_active = 'Y'
-               AND (r.role_name = 'ADMIN' OR EXISTS (
+               AND (EXISTS (
+                      SELECT 1 FROM role_permissions rp
+                        JOIN permissions p ON p.permission_id = rp.permission_id
+                       WHERE rp.role_id = u.role_id AND p.permission_code = :view_all)
+                    OR EXISTS (
                       SELECT 1 FROM project_members pm
                        WHERE pm.project_id = :project_id AND pm.user_id = u.user_id))""",
-        {**binds, "project_id": task["project_id"]})
+        {**binds, "project_id": task["project_id"], "view_all": PROJECT_VIEW_ALL})
     for row in eligible:
         db.execute(
             "INSERT INTO notifications (recipient_id, task_id, trigger_type, message) "

@@ -11,8 +11,10 @@ from app.common.access import (TASK_SELECT, is_assignee, is_project_manager, is_
                                require_project_visible, require_task_visible,
                                task_visibility_clause)
 from app.common.paging import PageParams, page_response
+from app.common.permissions import (PROJECT_MANAGE_ALL, TASK_ASSIGN, TASK_DELETE_ANY,
+                                     TASK_DELETE_OWN, TASK_EDIT, TASK_STATUS_CHANGE,
+                                     has_permission)
 from app.db import Db
-from app.deps import ADMIN
 from app.errors import bad_request, forbidden, not_found
 from app.modules.attachments import storage
 from app.modules.notifications import service as notifications
@@ -209,7 +211,7 @@ def create_task(db: Db, user: dict, *, project_id: int, title: str, description:
                 assignee_ids: list[int]) -> dict:
     require_project_visible(db, user, project_id)          # 404 if not a member
     _validate_dates(start_date, due_date)
-    if assignee_ids and not is_project_manager(db, user, project_id):
+    if assignee_ids and not is_project_manager(db, user, project_id, TASK_ASSIGN):
         raise forbidden("Only a Manager of the project may assign tasks to others")  # FR-032
     assignee_ids = _validate_assignees(db, project_id, assignee_ids)
 
@@ -238,7 +240,7 @@ def update_task(db: Db, user: dict, task_id: int, fields: dict) -> dict:
     (even the creator or an assignee) may only change status, comment, and add subtasks and
     attachments (FR-008c)."""
     task = require_task_visible(db, user, task_id)
-    if not is_project_manager(db, user, task["project_id"]):
+    if not is_project_manager(db, user, task["project_id"], TASK_EDIT):
         raise forbidden("Only a Manager of the project or an Admin may edit task details")
     start = fields.get("start_date", task["start_date"])
     due = fields.get("due_date", task["due_date"])
@@ -280,8 +282,8 @@ def _notify_involved(db: Db, task: dict, actor: dict, message: str) -> None:
 
 def delete_task(db: Db, user: dict, task_id: int) -> None:
     task = require_task_visible(db, user, task_id)
-    if not (is_project_manager(db, user, task["project_id"])
-            or task["created_by"] == user["user_id"]):
+    creator = task["created_by"] == user["user_id"] and has_permission(user, TASK_DELETE_OWN)
+    if not (is_project_manager(db, user, task["project_id"], TASK_DELETE_ANY) or creator):
         raise forbidden()
     files = [r["stored_name"] for r in db.query(
         "SELECT stored_name FROM attachments WHERE task_id = :t", {"t": task_id})]
@@ -298,8 +300,13 @@ def change_status(db: Db, user: dict, task_id: int, new_status: str) -> None:
     if new_status not in STATUSES:
         raise bad_request("Invalid status", status=f"must be one of {', '.join(STATUSES)}")
     task = require_task_visible(db, user, task_id)
-    if not (user["role"] == ADMIN or is_assignee(db, task_id, user["user_id"])
-            or is_project_manager(db, user, task["project_id"])):
+    # MEMBER also holds TASK_STATUS_CHANGE (for assignees), so the permission alone must never
+    # let a plain project member change status: the manager path is gated by TASK_EDIT, which
+    # only ADMIN and MANAGER hold (membership is still required for a MANAGER).
+    if not (has_permission(user, TASK_STATUS_CHANGE)
+            and (has_permission(user, PROJECT_MANAGE_ALL)
+                 or is_assignee(db, task_id, user["user_id"])
+                 or is_project_manager(db, user, task["project_id"], TASK_EDIT))):
         raise forbidden("Only an assignee, a Manager of the project, or an Admin may change status")
     db.execute(
         "UPDATE tasks SET status_id = (SELECT status_id FROM task_status WHERE status_code = :s), "
@@ -313,7 +320,7 @@ def change_status(db: Db, user: dict, task_id: int, new_status: str) -> None:
 
 def assign(db: Db, user: dict, task_id: int, user_ids: list[int]) -> dict:
     task = require_task_visible(db, user, task_id)
-    if not is_project_manager(db, user, task["project_id"]):
+    if not is_project_manager(db, user, task["project_id"], TASK_ASSIGN):
         raise forbidden()
     ids = _validate_assignees(db, task["project_id"], user_ids)
     _insert_assignees(db, task, ids, user)
@@ -323,7 +330,7 @@ def assign(db: Db, user: dict, task_id: int, user_ids: list[int]) -> dict:
 
 def unassign(db: Db, user: dict, task_id: int, user_id: int) -> None:
     task = require_task_visible(db, user, task_id)
-    if not is_project_manager(db, user, task["project_id"]):
+    if not is_project_manager(db, user, task["project_id"], TASK_ASSIGN):
         raise forbidden()
     if not is_assignee(db, task_id, user_id):
         raise not_found("User is not assigned to this task")

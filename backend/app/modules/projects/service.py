@@ -4,6 +4,7 @@ from datetime import date
 from app.common.access import (project_visibility_clause, require_project_manager,
                                require_project_visible)
 from app.common.paging import PageParams, page_response
+from app.common.permissions import PROJECT_DELETE, PROJECT_MEMBER_MANAGE, PROJECT_UPDATE
 from app.db import Db, is_unique_violation
 from app.errors import bad_request, conflict, not_found
 from app.modules.attachments import storage
@@ -87,7 +88,7 @@ def create_project(db: Db, user: dict, *, name: str, description: str | None, st
 
 def update_project(db: Db, user: dict, project_id: int, *, name: str, description: str | None,
                    status: str, start_date: date | None, end_date: date | None) -> dict:
-    require_project_manager(db, user, project_id)
+    require_project_manager(db, user, project_id, PROJECT_UPDATE)
     validate_dates(start_date, end_date)
     db.execute(
         """UPDATE projects SET name = :name, description = :description, status = :status,
@@ -100,7 +101,7 @@ def update_project(db: Db, user: dict, project_id: int, *, name: str, descriptio
 
 
 def delete_project(db: Db, user: dict, project_id: int) -> None:
-    require_project_manager(db, user, project_id)
+    require_project_manager(db, user, project_id, PROJECT_DELETE)
     files = [r["stored_name"] for r in db.query(
         "SELECT a.stored_name FROM attachments a JOIN tasks t ON t.task_id = a.task_id "
         "WHERE t.project_id = :p", {"p": project_id})]
@@ -110,7 +111,7 @@ def delete_project(db: Db, user: dict, project_id: int) -> None:
 
 
 def add_member(db: Db, user: dict, project_id: int, member_id: int) -> dict:
-    require_project_manager(db, user, project_id)
+    require_project_manager(db, user, project_id, PROJECT_MEMBER_MANAGE)
     target = db.one("SELECT user_id, is_active FROM users WHERE user_id = :u", {"u": member_id})
     if target is None:
         raise not_found("User not found")
@@ -134,7 +135,7 @@ def add_member(db: Db, user: dict, project_id: int, member_id: int) -> dict:
 def remove_member(db: Db, user: dict, project_id: int, member_id: int) -> dict:
     """Remove a member AND their task assignments within this project only, returning a
     summary of what was unassigned (FR-014, FR-019, spec Edge Cases)."""
-    require_project_manager(db, user, project_id)
+    require_project_manager(db, user, project_id, PROJECT_MEMBER_MANAGE)
     if not db.scalar("SELECT COUNT(*) FROM project_members WHERE project_id = :p AND user_id = :u",
                      {"p": project_id, "u": member_id}):
         raise not_found("User is not a member of this project")

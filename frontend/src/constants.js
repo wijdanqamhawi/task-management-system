@@ -29,3 +29,33 @@ export const ALLOWED_UPLOAD_TYPES = [
   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
 ];
 export const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip,.doc,.docx,.xls,.xlsx';
+
+/**
+ * The 21 permission codes in Oracle (PERMISSIONS / ROLE_PERMISSIONS) as returned in
+ * `permissions` by /api/auth/login and /api/auth/me. A permission is a GLOBAL capability held
+ * through the role; project, task and attachment actions additionally need the resource rule
+ * (see utils/permissions.js). Do not add codes here that the database does not define.
+ */
+export const PERMISSIONS = Object.freeze({
+  USER_ROLE_ASSIGN: 'USER_ROLE_ASSIGN',
+  USER_STATUS_MANAGE: 'USER_STATUS_MANAGE',
+  PROJECT_VIEW: 'PROJECT_VIEW',
+  PROJECT_VIEW_ALL: 'PROJECT_VIEW_ALL',
+  PROJECT_CREATE: 'PROJECT_CREATE',
+  PROJECT_UPDATE: 'PROJECT_UPDATE',
+  PROJECT_DELETE: 'PROJECT_DELETE',
+  PROJECT_MEMBER_MANAGE: 'PROJECT_MEMBER_MANAGE',
+  PROJECT_MANAGE_ALL: 'PROJECT_MANAGE_ALL',
+  TASK_VIEW: 'TASK_VIEW',
+  TASK_CREATE: 'TASK_CREATE',
+  TASK_EDIT: 'TASK_EDIT',
+  TASK_ASSIGN: 'TASK_ASSIGN',
+  TASK_STATUS_CHANGE: 'TASK_STATUS_CHANGE',
+  TASK_DELETE_ANY: 'TASK_DELETE_ANY',
+  TASK_DELETE_OWN: 'TASK_DELETE_OWN',
+  COMMENT_CREATE: 'COMMENT_CREATE',
+  SUBTASK_MANAGE: 'SUBTASK_MANAGE',
+  ATTACHMENT_UPLOAD: 'ATTACHMENT_UPLOAD',
+  ATTACHMENT_DELETE_ANY: 'ATTACHMENT_DELETE_ANY',
+  ATTACHMENT_DELETE_OWN: 'ATTACHMENT_DELETE_OWN',
+});

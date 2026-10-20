@@ -6,7 +6,7 @@ from pydantic import BaseModel, EmailStr, Field, field_validator
 
 from app.config import get_settings
 from app.db import Db, get_db
-from app.deps import current_user
+from app.deps import current_user, load_permissions
 from app.errors import ApiError
 from app import mailer as mail
 from app import ratelimit
@@ -49,6 +49,11 @@ class LoginBody(BaseModel):
     remember: bool = False     # "Remember me": 30-day persistent session
 
 
+def _with_permissions(view: dict, permissions) -> dict:
+    """The session user: every existing field, plus the effective permission codes (RBAC)."""
+    return {**view, "permissions": sorted(permissions)}
+
+
 @router.post("/register", status_code=201)
 def register(body: RegisterBody, response: Response, db: Db = Depends(get_db)):
     user = service.register(db, email=body.email, password=body.password,
@@ -72,7 +77,7 @@ def login(body: LoginBody, request: Request, db: Db = Depends(get_db)):
     request.session["remember"] = body.remember
     request.session["exp"] = session_policy.now() + lifetime
     request.session["pwf"] = user["pw_fp"]      # ends this session if the password changes
-    return service.user_view(user)
+    return _with_permissions(service.user_view(user), load_permissions(db, user["user_id"]))
 
 
 @router.post("/logout", status_code=204)
@@ -83,7 +88,7 @@ def logout(request: Request, _user: dict = Depends(current_user)):
 
 @router.get("/me")
 def me(user: dict = Depends(current_user)):
-    return service.user_view(user)
+    return _with_permissions(service.user_view(user), user["permissions"])
 
 
 # ----------------------------------------------------------------- password reset

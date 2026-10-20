@@ -14,6 +14,8 @@ ACTIVITY_LOG — see [Not modelled](#not-modelled) for why.
 ```mermaid
 erDiagram
     ROLES        ||--o{ USERS            : "held by"
+    ROLES        ||--o{ ROLE_PERMISSIONS : "granted via"
+    PERMISSIONS  ||--o{ ROLE_PERMISSIONS : "granted via"
     USERS        ||--o{ PROJECT_MEMBERS  : "member via"
     PROJECTS     ||--o{ PROJECT_MEMBERS  : "has member via"
     USERS        ||--o{ PROJECTS         : "created"
@@ -35,6 +37,16 @@ erDiagram
         NUMBER   role_id      PK
         VARCHAR2 role_name    UK "ADMIN | MANAGER | MEMBER"
         VARCHAR2 description
+    }
+    PERMISSIONS {
+        NUMBER   permission_id   PK
+        VARCHAR2 permission_code UK "e.g. TASK_ASSIGN; upper case"
+        VARCHAR2 description
+    }
+    ROLE_PERMISSIONS {
+        NUMBER    role_id       PK_FK
+        NUMBER    permission_id PK_FK
+        TIMESTAMP granted_at
     }
     USERS {
         NUMBER    user_id       PK
@@ -133,6 +145,7 @@ erDiagram
 | Relationship | Cardinality | Source |
 |--------------|-------------|--------|
 | USERS → ROLES | Many users to one role | **[OFFICIAL]** roles and permissions; **[CLARIFIED]** the three roles |
+| ROLES ↔ PERMISSIONS via ROLE_PERMISSIONS | Many-to-many | RBAC Phase 1: permissions as data |
 | USERS ↔ PROJECTS via PROJECT_MEMBERS | Many-to-many | **[OFFICIAL]** assign project members |
 | PROJECTS → TASKS | One project to many tasks | **[OFFICIAL]** tasks belong to projects |
 | USERS ↔ TASKS via TASK_ASSIGNEES | Many-to-many | **[OFFICIAL]** assign tasks to one or more users |
@@ -158,6 +171,14 @@ last line of defence.
 
 Reference data, seeded, never edited at runtime. Exactly three rows: `ADMIN`, `MANAGER`,
 `MEMBER` **[CLARIFIED, FR-008]**.
+
+### PERMISSIONS and ROLE_PERMISSIONS
+
+Reference data, seeded by `database/seed/rbac_data.sql` (21 permissions; ADMIN 21, MANAGER 17,
+MEMBER 9 grants). `permission_code` is unique and upper case. `ROLE_PERMISSIONS` has the composite
+key (`role_id`, `permission_id`) and foreign keys to both tables, with no cascade. A permission is a
+**global** capability; project membership, project-manager membership, assignee and creator/uploader
+checks remain row-level rules in the application and are not expressed as permissions.
 
 ### USERS
 
@@ -306,10 +327,11 @@ would mean building a write path no requirement exercises and no test could just
 Constitution Principle I forbids. Adding it later is one table and one interceptor — a scope
 decision for the project owner, not a design gap.
 
-**Permissions as data.** FR-008a–c define what each of the three roles may do. Those rules are
-fixed and small, so they live in code as FastAPI role dependencies and membership checks rather than in a
-PERMISSIONS table. A table would be required only if roles became user-definable, which no
-requirement asks for.
+**Permissions as data.** FR-008a–c define what each of the three roles may do. The role →
+capability mapping is now stored in `PERMISSIONS` / `ROLE_PERMISSIONS` (RBAC Phase 1, schema and
+seed only; the backend still enforces the rules in code until a later phase switches it over).
+The data-dependent rules (membership, assignee, creator) stay in code because they depend on the
+specific row. Roles remain fixed at three (`ck_roles_name`).
 
 ## Implementation notes
 

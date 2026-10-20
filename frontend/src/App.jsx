@@ -3,7 +3,7 @@
  *
  * Public screens: login, register, forgot password. Every other screen sits behind
  * <RouteGuard> and renders inside the shared <AppLayout> (sidebar + top bar). The guard and the
- * role lists only decide what the interface offers; the API enforces authorization on every
+ * permission lists only decide what the interface offers; the API enforces authorization on every
  * request (Constitution V, FR-005).
  */
 import './styles/layout.css';
@@ -12,7 +12,7 @@ import { Router, Routes, useRouter } from './router/Router.jsx';
 import { RouteGuard } from './router/RouteGuard.jsx';
 import { SessionProvider, useSession } from './auth/SessionContext.jsx';
 import { UnreadProvider } from './notifications/UnreadContext.jsx';
-import { ROUTES, ROUTE_ROLES } from './router/routes.js';
+import { ROUTES, ROUTE_PERMISSIONS } from './router/routes.js';
 import AppLayout from './components/AppLayout.jsx';
 import { Link } from './router/Link.jsx';
 import Login from './pages/Login.jsx';
@@ -31,7 +31,7 @@ import Notifications from './pages/Notifications.jsx';
 
 const guarded = (path, render) => ({
   path,
-  element: (params) => <RouteGuard roles={ROUTE_ROLES[path]}>{render(params)}</RouteGuard>,
+  element: (params) => <RouteGuard permissions={ROUTE_PERMISSIONS[path]}>{render(params)}</RouteGuard>,
 });
 
 const routes = [

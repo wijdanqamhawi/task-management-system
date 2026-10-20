@@ -1,7 +1,7 @@
 /*
  * Project detail, progress, members and its tasks (FR-009..FR-015, FR-033, FR-044).
- * Edit, delete and membership controls are shown only to a Manager OF this project or an
- * Admin (R-003); the API enforces the same rule.
+ * Edit, delete and membership controls need the matching permission AND manager scope: a member
+ * of THIS project, or PROJECT_MANAGE_ALL (R-003); the API enforces the same rule.
  */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
@@ -19,6 +19,7 @@ import {
 import { searchTasks } from '../api/tasks.js';
 import { listUsers } from '../api/users.js';
 import { PROJECT_STATUS_LABELS, ROLE_LABELS } from '../constants.js';
+import { canDeleteProject, canManageMembers, canUpdateProject } from '../utils/permissions.js';
 import { fmtDate, errorMessage } from '../utils/format.js';
 
 function MemberPicker({ existingIds, onAdd, busy }) {
@@ -81,9 +82,11 @@ export default function Project({ id }) {
   const tasks = useApi((signal) => searchTasks({ projectId, size: 8, sort: 'dueDate' }, { signal }), [projectId]);
 
   const members = project.data?.members ?? [];
-  const isManager = user.role === 'ADMIN'
-    || (user.role === 'MANAGER' && members.some((m) => m.userId === user.userId));
-  const managedIds = new Set(isManager ? [projectId] : []);
+  // Manager scope = membership of this project (plus PROJECT_MANAGE_ALL inside the helpers).
+  const managedIds = new Set(members.some((m) => m.userId === user.userId) ? [projectId] : []);
+  const mayUpdate = canUpdateProject(user, projectId, managedIds);
+  const mayDelete = canDeleteProject(user, projectId, managedIds);
+  const mayManageMembers = canManageMembers(user, projectId, managedIds);
 
   async function guarded(action, success) {
     setBusy(true);
@@ -105,7 +108,7 @@ export default function Project({ id }) {
     { key: 'fullName', header: 'Name', render: (m) => <strong>{m.fullName}</strong> },
     { key: 'email', header: 'Email' },
     { key: 'role', header: 'Role', render: (m) => <Badge value={m.role}>{ROLE_LABELS[m.role]}</Badge> },
-    ...(isManager ? [{ key: 'actions', header: '',
+    ...(mayManageMembers ? [{ key: 'actions', header: '',
       render: (m) => <Button type="button" disabled={busy} onClick={() => setRemoving(m)}>Remove</Button> }] : []),
   ];
 
@@ -120,8 +123,8 @@ export default function Project({ id }) {
               actions={(
                 <>
                   <Link to={`/tasks?projectId=${p.projectId}`} className="btn">All tasks</Link>
-                  {isManager && <Button onClick={() => setEditing(true)}>Edit</Button>}
-                  {isManager && <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button>}
+                  {mayUpdate && <Button onClick={() => setEditing(true)}>Edit</Button>}
+                  {mayDelete && <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button>}
                 </>
               )}
             />
@@ -153,7 +156,7 @@ export default function Project({ id }) {
             <section className="panel">
               <h3 className="panel__title">Members ({members.length})</h3>
               <Table columns={memberColumns} rows={members.map((m) => ({ ...m, id: m.userId }))} empty="No members." />
-              {isManager && (
+              {mayManageMembers && (
                 <>
                   <hr />
                   <MemberPicker busy={busy} existingIds={new Set(members.map((m) => m.userId))}

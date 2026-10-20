@@ -6,7 +6,8 @@ from pydantic import BaseModel, EmailStr, Field
 
 from app.common.paging import PageParams
 from app.db import Db, get_db
-from app.deps import ADMIN, current_user, require_roles
+from app.common.permissions import USER_ROLE_ASSIGN, USER_STATUS_MANAGE
+from app.deps import current_user, require_permission
 from app.modules.users import service
 
 router = APIRouter(prefix="/api/users", tags=["users"])
@@ -38,17 +39,18 @@ def get_user(user_id: int, _user: dict = Depends(current_user), db: Db = Depends
 
 
 @router.put("/{user_id}/role")
-def set_role(user_id: int, body: RoleBody, admin: dict = Depends(require_roles(ADMIN)),
+def set_role(user_id: int, body: RoleBody, admin: dict = Depends(require_permission(USER_ROLE_ASSIGN)),
              db: Db = Depends(get_db)):
     return service.set_role(db, admin, user_id, body.role)
 
 
 @router.put("/{user_id}/activate")
-def activate(user_id: int, admin: dict = Depends(require_roles(ADMIN)), db: Db = Depends(get_db)):
+def activate(user_id: int, admin: dict = Depends(require_permission(USER_STATUS_MANAGE)),
+             db: Db = Depends(get_db)):
     return service.set_active(db, admin, user_id, True)
 
 
 @router.put("/{user_id}/deactivate")
-def deactivate(user_id: int, admin: dict = Depends(require_roles(ADMIN)),
+def deactivate(user_id: int, admin: dict = Depends(require_permission(USER_STATUS_MANAGE)),
                db: Db = Depends(get_db)):
     return service.set_active(db, admin, user_id, False)

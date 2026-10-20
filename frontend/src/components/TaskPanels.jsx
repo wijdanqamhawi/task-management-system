@@ -13,6 +13,7 @@ import {
 } from '../api/taskDetail.js';
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, UPLOAD_ACCEPT } from '../constants.js';
 import { errorMessage, fmtBytes, fmtDateTime } from '../utils/format.js';
+import { canDeleteAttachment } from '../utils/permissions.js';
 
 export function SubtasksPanel({ taskId }) {
   const state = useApi((signal) => listSubtasks(taskId, { signal }), [taskId]);
@@ -118,7 +119,7 @@ export function CommentsPanel({ taskId }) {
   );
 }
 
-export function AttachmentsPanel({ taskId, user, canManage }) {
+export function AttachmentsPanel({ taskId, user, projectId, managedIds }) {
   const state = useApi((signal) => listAttachments(taskId, { signal }), [taskId]);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -161,7 +162,7 @@ export function AttachmentsPanel({ taskId, user, canManage }) {
                     <a className="text-link" href={attachmentUrl(a.attachmentId)} download={a.originalName}>{a.originalName}</a>
                     <div className="comment__meta">{fmtBytes(a.sizeBytes)} · {a.uploaderName} · {fmtDateTime(a.uploadedAt)}</div>
                   </div>
-                  {(a.uploadedBy === user.userId || canManage) && (
+                  {canDeleteAttachment(user, a, projectId, managedIds) && (
                     <Button type="button" disabled={busy} aria-label={`Delete ${a.originalName}`}
                             onClick={() => setRemoving(a)}>Delete</Button>
                   )}

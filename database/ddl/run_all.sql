@@ -12,6 +12,7 @@ WHENEVER SQLERROR EXIT SQL.SQLCODE
 @@06_notifications.sql
 @@07_indexes.sql
 @@08_password_reset.sql
+@@09_rbac.sql
 
 PROMPT ================================================
 PROMPT  Schema installed. Next: @../plsql/run_all.sql

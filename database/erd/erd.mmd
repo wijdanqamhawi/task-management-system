@@ -1,5 +1,7 @@
 erDiagram
     ROLES        ||--o{ USERS            : "held by"
+    ROLES        ||--o{ ROLE_PERMISSIONS : "granted via"
+    PERMISSIONS  ||--o{ ROLE_PERMISSIONS : "granted via"
     USERS        ||--o{ PROJECT_MEMBERS  : "member via"
     PROJECTS     ||--o{ PROJECT_MEMBERS  : "has member via"
     USERS        ||--o{ PROJECTS         : "created"
@@ -22,6 +24,16 @@ erDiagram
         NUMBER   role_id      PK
         VARCHAR2 role_name    UK "ADMIN | MANAGER | MEMBER"
         VARCHAR2 description
+    }
+    PERMISSIONS {
+        NUMBER   permission_id   PK
+        VARCHAR2 permission_code UK "e.g. TASK_ASSIGN; upper case"
+        VARCHAR2 description
+    }
+    ROLE_PERMISSIONS {
+        NUMBER    role_id       PK_FK
+        NUMBER    permission_id PK_FK
+        TIMESTAMP granted_at
     }
     USERS {
         NUMBER    user_id       PK

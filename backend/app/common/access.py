@@ -2,17 +2,17 @@
 checks (R-003, layer 2).
 
 A user may see a project, and every task in it, if they are a member of the project or hold
-ADMIN. Every task read goes through `task_visibility_clause`, so a list, a search, a count and
+PROJECT_VIEW_ALL (ADMIN). Every task read goes through `task_visibility_clause`, so a list, a search, a count and
 a detail view cannot drift apart (FR-045, FR-053).
 """
 from app.db import Db
-from app.deps import ADMIN, MANAGER
+from app.common.permissions import PROJECT_MANAGE_ALL, PROJECT_VIEW_ALL, has_permission
 from app.errors import forbidden, not_found
 
 
 def task_visibility_clause(user: dict, task_alias: str = "t") -> tuple[str, dict]:
     """SQL fragment (and binds) restricting `task_alias` rows to tasks the user may see."""
-    if user["role"] == ADMIN:
+    if has_permission(user, PROJECT_VIEW_ALL):
         return "1 = 1", {}
     return (
         f"EXISTS (SELECT 1 FROM project_members vpm "
@@ -22,7 +22,7 @@ def task_visibility_clause(user: dict, task_alias: str = "t") -> tuple[str, dict
 
 
 def project_visibility_clause(user: dict, project_alias: str = "p") -> tuple[str, dict]:
-    if user["role"] == ADMIN:
+    if has_permission(user, PROJECT_VIEW_ALL):
         return "1 = 1", {}
     return (
         f"EXISTS (SELECT 1 FROM project_members vpm "
@@ -31,19 +31,26 @@ def project_visibility_clause(user: dict, project_alias: str = "p") -> tuple[str
     )
 
 
-def is_project_member(db: Db, user: dict, project_id: int) -> bool:
-    if user["role"] == ADMIN:
-        return True
+def _is_listed_member(db: Db, user: dict, project_id: int) -> bool:
     return db.scalar(
         "SELECT COUNT(*) FROM project_members WHERE project_id = :p AND user_id = :u",
         {"p": project_id, "u": user["user_id"]}) > 0
 
 
-def is_project_manager(db: Db, user: dict, project_id: int) -> bool:
-    """Admin, or a MANAGER who belongs to the project (a role alone is not enough)."""
-    if user["role"] == ADMIN:
+def is_project_member(db: Db, user: dict, project_id: int) -> bool:
+    if has_permission(user, PROJECT_VIEW_ALL):
         return True
-    return user["role"] == MANAGER and is_project_member(db, user, project_id)
+    return _is_listed_member(db, user, project_id)
+
+
+def is_project_manager(db: Db, user: dict, project_id: int, permission: str) -> bool:
+    """Manager of the project for the action that needs `permission`: the user holds that
+    permission AND is either allowed to manage every project (ADMIN) or belongs to this project.
+    The permission alone is not enough, and neither is membership alone: a plain MEMBER of the
+    project holds no manager permission, a MANAGER outside the project is not a member."""
+    if not has_permission(user, permission):
+        return False
+    return has_permission(user, PROJECT_MANAGE_ALL) or _is_listed_member(db, user, project_id)
 
 
 def require_project_visible(db: Db, user: dict, project_id: int) -> dict:
@@ -59,9 +66,9 @@ def require_project_visible(db: Db, user: dict, project_id: int) -> dict:
     return row
 
 
-def require_project_manager(db: Db, user: dict, project_id: int) -> dict:
+def require_project_manager(db: Db, user: dict, project_id: int, permission: str) -> dict:
     project = require_project_visible(db, user, project_id)
-    if not is_project_manager(db, user, project_id):
+    if not is_project_manager(db, user, project_id, permission):
         raise forbidden()
     return project
 

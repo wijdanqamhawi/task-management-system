@@ -2,14 +2,19 @@
  * T041 — session context. Loads GET /api/auth/me and exposes the current user and role
  * to guards and screens (FR-003, FR-005).
  *
- * The role held here drives what the UI offers. It never decides what the API permits —
+ * `user.permissions` (from /auth/login and /auth/me) is always an array; it is [] when the API
+ * sent none, so the UI fails closed. Permissions refresh on login and on a page reload.
+ * What is held here only drives what the UI offers. It never decides what the API permits —
  * that is enforced server-side on every request (Constitution V).
  */
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { api, ApiError } from '../api/client.js';
 import { login as loginRequest } from '../api/auth.js';
+import { normalizePermissions } from '../utils/permissions.js';
 
 const SessionContext = createContext(null);
+
+const withPermissions = (user) => (user ? { ...user, permissions: normalizePermissions(user.permissions) } : user);
 
 export function SessionProvider({ children }) {
   const [user, setUser] = useState(null);
@@ -20,7 +25,7 @@ export function SessionProvider({ children }) {
   const refresh = useCallback(async ({ silent = false } = {}) => {
     if (!silent) setLoading(true);
     try {
-      setUser(await api.get('/auth/me'));
+      setUser(withPermissions(await api.get('/auth/me')));
     } catch (error) {
       // 401 simply means "not signed in" — an expected state, not a failure.
       if (!(error instanceof ApiError) || error.status !== 401) {
@@ -35,7 +40,7 @@ export function SessionProvider({ children }) {
   useEffect(() => { refresh(); }, [refresh]);
 
   const login = useCallback(async (email, password, remember = false) => {
-    const me = await loginRequest(email, password, remember);
+    const me = withPermissions(await loginRequest(email, password, remember));
     setUser(me);
     return me;
   }, []);

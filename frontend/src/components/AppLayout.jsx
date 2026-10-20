@@ -3,8 +3,9 @@
  * search, the notification bell with unread badge, the signed-in user, and Sign out.
  * Extracted from the Dashboard so all screens share one look; styling is dashboard.css + app.css.
  *
- * Which links appear depends on the role (Users is Admin-only). That is a usability hint:
- * the API still refuses anything the role may not do (Constitution V).
+ * Which links appear depends on the user's permissions (Users needs a user-administration
+ * permission). That is a usability hint: the API still refuses anything the user may not do
+ * (Constitution V).
  */
 import { useState } from 'react';
 import '../styles/dashboard.css';
@@ -17,6 +18,7 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { useUnread } from '../notifications/UnreadContext.jsx';
 import { ROUTES } from '../router/routes.js';
 import { initials } from '../utils/format.js';
+import { canAdministerUsers } from '../utils/permissions.js';
 import {
   BellIcon, CloseIcon, DashboardIcon, MenuIcon, MyTasksIcon, ProjectsIcon, SearchIcon,
   TasksIcon, TeamIcon,
@@ -30,7 +32,7 @@ function navItems(user) {
     { to: ROUTES.MY_TASKS, label: 'My Tasks', Icon: MyTasksIcon },
     { to: ROUTES.NOTIFICATIONS, label: 'Notifications', Icon: BellIcon, badge: true },
   ];
-  if (user?.role === 'ADMIN') items.push({ to: ROUTES.USERS, label: 'Users', Icon: TeamIcon });
+  if (canAdministerUsers(user)) items.push({ to: ROUTES.USERS, label: 'Users', Icon: TeamIcon });
   return items;
 }
 

@@ -3,10 +3,10 @@
  * (FR-017..FR-026, FR-034). A task outside the caller's projects is a 404 from the API, which
  * this screen shows as "Task not found" without saying whether it exists (FR-053).
  *
- * Controls follow the roles but the API is the authority: edit and assignment by a Manager of
- * the project or an Admin (FR-008b; a Member never edits details, FR-008c); status by an
- * assignee, a Manager of the project or an Admin; delete by the creator, a Manager of the
- * project or an Admin.
+ * Controls follow the permissions but the API is the authority: edit (TASK_EDIT) and assignment
+ * (TASK_ASSIGN) need manager scope of the project (FR-008b; a Member never edits details,
+ * FR-008c); status by an assignee, a manager of the project or PROJECT_MANAGE_ALL; delete by
+ * a manager of the project (TASK_DELETE_ANY) or the creator (TASK_DELETE_OWN).
  */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
@@ -24,7 +24,7 @@ import {
 } from '../api/tasks.js';
 import { listMembers } from '../api/projects.js';
 import { PRIORITY_LABELS, STATUS_LABELS } from '../constants.js';
-import { canChangeStatus, canDeleteTask, isManagerOf } from '../utils/permissions.js';
+import { canAssign, canChangeStatus, canDeleteTask, canEditTask } from '../utils/permissions.js';
 import { errorMessage, fmtDate, fmtDateTime } from '../utils/format.js';
 
 function Assignees({ task, manager, onChanged, setError }) {
@@ -104,7 +104,8 @@ export default function Task({ id }) {
     <AppLayout title="Task">
       <Async state={state}>
         {(t) => {
-          const manager = isManagerOf(user, t.projectId, visible.ids);
+          const mayEdit = canEditTask(user, t.projectId, visible.ids);
+          const mayAssign = canAssign(user, t.projectId, visible.ids);
           const mayStatus = canChangeStatus(user, t, visible.ids);
           return (
             <>
@@ -114,7 +115,7 @@ export default function Task({ id }) {
                   {' · '}created {fmtDateTime(t.createdAt)}</>}
                 actions={(
                   <>
-                    {manager && <Button onClick={() => setEditing(true)}>Edit</Button>}
+                    {mayEdit && <Button onClick={() => setEditing(true)}>Edit</Button>}
                     {canDeleteTask(user, t, visible.ids) && (
                       <Button variant="danger" onClick={() => setConfirmDelete(true)}>Delete</Button>
                     )}
@@ -148,12 +149,12 @@ export default function Task({ id }) {
                   <p className="prose">{t.description || <span className="muted">No description.</span>}</p>
                 </section>
 
-                <Assignees task={t} manager={manager} onChanged={state.reload} setError={setError} />
+                <Assignees task={t} manager={mayAssign} onChanged={state.reload} setError={setError} />
               </div>
 
               <div className="cols cols--2">
                 <SubtasksPanel taskId={taskId} />
-                <AttachmentsPanel taskId={taskId} user={user} canManage={manager} />
+                <AttachmentsPanel taskId={taskId} user={user} projectId={t.projectId} managedIds={visible.ids} />
               </div>
               <CommentsPanel taskId={taskId} />
 

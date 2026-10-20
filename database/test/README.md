@@ -31,13 +31,13 @@ $sql = "C:\app\wijdan\product\26ai\dbhomeFree\bin\sqlplus.exe"
 $root = "C:\Users\wijdan\OneDrive\Desktop\Task managment\database"
 
 cd "$root\ddl"
-& $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # 13 tables, indexes, uq_notifications_scheduled
+& $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # 15 tables, indexes, uq_notifications_scheduled
 
 cd "$root\plsql"
 & $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # PKG_DASHBOARD, PKG_NOTIFICATION
 
 cd "$root\seed"
-& $sql tms_test@//localhost:1521/FREEPDB1 "@reference_data.sql"    # roles, statuses, priorities ONLY
+& $sql tms_test@//localhost:1521/FREEPDB1 "@reference_data.sql"    # roles, statuses, priorities, permissions ONLY
 ```
 
 Do **not** run `demo_data.sql` here: the test guard refuses a schema that holds anything but
@@ -50,7 +50,7 @@ Do **not** run `demo_data.sql` here: the test guard refuses a schema that holds 
 ```
 
 ```sql
-SELECT COUNT(*) FROM user_tables;                                    -- 13
+SELECT COUNT(*) FROM user_tables;                                    -- 15
 SELECT object_name, object_type, status FROM user_objects
  WHERE object_type IN ('PACKAGE','PACKAGE BODY') ORDER BY 1, 2;      -- 4 rows, all VALID
 SELECT COUNT(*) FROM roles;                                          -- 3

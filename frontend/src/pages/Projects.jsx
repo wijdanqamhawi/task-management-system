@@ -1,4 +1,4 @@
-/* Project list (FR-015). New project is offered to Manager and Admin only (FR-008b). */
+/* Project list (FR-015). New project is offered only with the PROJECT_CREATE permission (FR-008b). */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
 import ProjectForm from '../components/ProjectForm.jsx';
@@ -10,7 +10,7 @@ import { useApi } from '../hooks/useApi.js';
 import { useSession } from '../auth/SessionContext.jsx';
 import { createProject, listProjects } from '../api/projects.js';
 import { PROJECT_STATUS_LABELS } from '../constants.js';
-import { canCreateProject } from '../utils/permissions.js';
+import { canCreateProject, canViewAllProjects } from '../utils/permissions.js';
 import { fmtDate } from '../utils/format.js';
 
 export default function Projects() {
@@ -38,7 +38,7 @@ export default function Projects() {
   return (
     <AppLayout title="Projects">
       <PageHeader
-        title={user.role === 'ADMIN' ? 'All projects' : 'Your projects'}
+        title={canViewAllProjects(user) ? 'All projects' : 'Your projects'}
         subtitle="Projects you are a member of."
         actions={canCreateProject(user) && <Button variant="primary" onClick={() => setCreating(true)}>New project</Button>}
       />

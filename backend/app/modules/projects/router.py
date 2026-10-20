@@ -8,7 +8,8 @@ from pydantic import BaseModel, Field, field_validator
 from app.common.access import require_project_visible
 from app.common.paging import PageParams
 from app.db import Db, get_db
-from app.deps import ADMIN, MANAGER, current_user, require_roles
+from app.common.permissions import PROJECT_CREATE
+from app.deps import current_user, require_permission
 from app.modules.projects import service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -46,7 +47,7 @@ def list_projects(params: PageParams = Depends(), user: dict = Depends(current_u
 
 @router.post("", status_code=201)
 def create_project(body: ProjectBody, response: Response,
-                   user: dict = Depends(require_roles(MANAGER, ADMIN)), db: Db = Depends(get_db)):
+                   user: dict = Depends(require_permission(PROJECT_CREATE)), db: Db = Depends(get_db)):
     project = service.create_project(db, user, **_fields(body))
     response.headers["Location"] = f"/api/projects/{project['projectId']}"
     return project

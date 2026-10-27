@@ -21,27 +21,29 @@ function readDesign() {
 
 const barStyle = {
   position: 'fixed',
-  top: 6,
+  top: 8,
   left: '50%',
   transform: 'translateX(-50%)',
   zIndex: 2000,
   display: 'flex',
-  padding: 3,
-  gap: 2,
+  padding: 4,
+  gap: 4,
   background: '#ffffff',
-  border: '1px solid #d5dbe1',
+  border: '1px solid #9aa5b1',
   borderRadius: 999,
-  boxShadow: '0 2px 8px rgba(31, 41, 51, 0.15)',
-  font: '600 12px/1 "Segoe UI", Roboto, Arial, sans-serif',
+  boxShadow: '0 2px 10px rgba(31, 41, 51, 0.3)',
+  font: '600 13px/1 "Segoe UI", Roboto, Arial, sans-serif',
+  whiteSpace: 'nowrap',
 };
 
 const buttonStyle = (active) => ({
   border: 0,
   cursor: 'pointer',
-  padding: '6px 12px',
+  padding: '8px 16px',
+  minHeight: 32,
   borderRadius: 999,
   font: 'inherit',
-  color: active ? '#ffffff' : '#52606d',
+  color: active ? '#ffffff' : '#323f4b',
   background: active ? '#1565c0' : 'transparent',
 });
 

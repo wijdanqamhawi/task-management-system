@@ -18,19 +18,19 @@ import { ROUTES } from '../router/routes.js';
 const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_BYTES = 72;       // bcrypt limit, mirrors the server's policy
 
-function readToken() {
+export function readToken() {
   const params = new URLSearchParams(window.location.hash.replace(/^#/, ''));
   return params.get('token') || '';
 }
 
-function passwordError(value) {
+export function passwordError(value) {
   if (!value) return 'Enter a new password.';
   if (value.length < MIN_PASSWORD_LENGTH) return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
   if (new TextEncoder().encode(value).length > MAX_PASSWORD_BYTES) return `Password must be at most ${MAX_PASSWORD_BYTES} bytes.`;
   return undefined;
 }
 
-function confirmError(password, confirm) {
+export function confirmError(password, confirm) {
   if (!confirm) return 'Confirm your new password.';
   if (confirm !== password) return 'Passwords do not match.';
   return undefined;

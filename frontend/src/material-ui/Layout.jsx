@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import {
   AppBar, Avatar, Badge, Box, Divider, Drawer, IconButton, List, ListItemButton, ListItemIcon, ListItemText,
-  Toolbar, Typography, useMediaQuery,
+  Toolbar, Tooltip, Typography, useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import MenuIcon from '@mui/icons-material/Menu';
@@ -14,30 +14,48 @@ import PeopleIcon from '@mui/icons-material/PeopleAltOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import { useSession } from '../auth/SessionContext.jsx';
+import { useUnread } from '../notifications/UnreadContext.jsx';
+import { useRouter } from '../router/Router.jsx';
+import { ROUTES } from '../router/routes.js';
+import { ROLE_LABELS } from '../constants.js';
+import { canAdministerUsers } from '../utils/permissions.js';
+import { initials } from '../utils/format.js';
 
 const DRAWER_WIDTH = 248;
 
 const NAV = [
-  { key: 'dashboard', label: 'Dashboard', icon: <DashboardIcon /> },
-  { key: 'projects', label: 'Projects', icon: <FolderIcon /> },
-  { key: 'tasks', label: 'Tasks', icon: <TaskIcon /> },
-  { key: 'my-tasks', label: 'My Tasks', icon: <AssignmentIcon /> },
-  { key: 'notifications', label: 'Notifications', icon: <NotificationsIcon /> },
-  { key: 'users', label: 'Users', icon: <PeopleIcon /> },
-  { key: 'profile', label: 'Profile', icon: <PersonIcon /> },
+  { to: ROUTES.DASHBOARD, label: 'Dashboard', icon: <DashboardIcon /> },
+  { to: ROUTES.PROJECTS, label: 'Projects', icon: <FolderIcon /> },
+  { to: ROUTES.TASKS, label: 'Tasks', icon: <TaskIcon /> },
+  { to: ROUTES.MY_TASKS, label: 'My Tasks', icon: <AssignmentIcon /> },
+  { to: ROUTES.NOTIFICATIONS, label: 'Notifications', icon: <NotificationsIcon />, badge: true },
+  { to: ROUTES.USERS, label: 'Users', icon: <PeopleIcon />, needsUserAdmin: true },
+  { to: ROUTES.PROFILE, label: 'Profile', icon: <PersonIcon /> },
 ];
 
-export default function Layout({ page, onNavigate, unread, user, children }) {
+export default function Layout({ children }) {
   const theme = useTheme();
   const desktop = useMediaQuery(theme.breakpoints.up('md'));
   const [open, setOpen] = useState(false);
+  const { user, logout } = useSession();
+  const { unread } = useUnread();
+  const { pathname, navigate } = useRouter();
 
   // Detail pages highlight their parent section.
-  const activeKey = page === 'project' ? 'projects' : page === 'task' ? 'tasks' : page;
+  const isActive = (to) => pathname === to || pathname.startsWith(`${to}/`);
+  // Same rule as the Users route: either user-administration permission.
+  const items = NAV.filter((item) => !item.needsUserAdmin || canAdministerUsers(user));
 
-  const go = (key) => {
+  const go = (to) => {
     setOpen(false);
-    onNavigate(key);
+    navigate(to);
+  };
+
+  // Once the session is cleared the route guard sends the user to the login screen.
+  const signOut = async () => {
+    setOpen(false);
+    try { await logout(); } catch { /* the guard re-checks the session either way */ }
   };
 
   const drawer = (
@@ -52,15 +70,15 @@ export default function Layout({ page, onNavigate, unread, user, children }) {
       </Toolbar>
       <Divider />
       <List sx={{ px: 1.5, py: 2, flex: 1 }}>
-        {NAV.map((item) => (
+        {items.map((item) => (
           <ListItemButton
-            key={item.key}
-            selected={activeKey === item.key}
-            onClick={() => go(item.key)}
+            key={item.to}
+            selected={isActive(item.to)}
+            onClick={() => go(item.to)}
             sx={{ borderRadius: 2, mb: 0.5, '&.Mui-selected': { bgcolor: 'primary.light', color: 'primary.main' }, '&.Mui-selected .MuiListItemIcon-root': { color: 'primary.main' } }}
           >
             <ListItemIcon sx={{ minWidth: 40 }}>
-              {item.key === 'notifications' ? (
+              {item.badge ? (
                 <Badge badgeContent={unread} color="error">
                   {item.icon}
                 </Badge>
@@ -74,7 +92,7 @@ export default function Layout({ page, onNavigate, unread, user, children }) {
       </List>
       <Divider />
       <List sx={{ px: 1.5, py: 1.5 }}>
-        <ListItemButton sx={{ borderRadius: 2 }} onClick={() => go('logout')}>
+        <ListItemButton sx={{ borderRadius: 2 }} onClick={signOut}>
           <ListItemIcon sx={{ minWidth: 40 }}>
             <LogoutIcon />
           </ListItemIcon>
@@ -94,9 +112,9 @@ export default function Layout({ page, onNavigate, unread, user, children }) {
             </IconButton>
           )}
           <Typography variant="h6" sx={{ flex: 1 }}>
-            Material UI Preview
+            Task Management System
           </Typography>
-          <IconButton onClick={() => go('notifications')} aria-label="Notifications">
+          <IconButton onClick={() => go(ROUTES.NOTIFICATIONS)} aria-label="Notifications">
             <Badge badgeContent={unread} color="error">
               <NotificationsIcon />
             </Badge>
@@ -106,10 +124,15 @@ export default function Layout({ page, onNavigate, unread, user, children }) {
               {user.fullName}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              {user.role}
+              {ROLE_LABELS[user.role] ?? user.role}
             </Typography>
           </Box>
-          <Avatar sx={{ ml: 1.5, bgcolor: 'primary.main' }}>{user.fullName[0]}</Avatar>
+          <Avatar sx={{ ml: 1.5, bgcolor: 'primary.main' }}>{initials(user.fullName)}</Avatar>
+          <Tooltip title="Sign out">
+            <IconButton onClick={signOut} sx={{ ml: 0.5 }} aria-label="Sign out">
+              <LogoutIcon />
+            </IconButton>
+          </Tooltip>
         </Toolbar>
       </AppBar>
 
@@ -129,7 +152,7 @@ export default function Layout({ page, onNavigate, unread, user, children }) {
 
       <Box component="main" sx={{ flex: 1, minWidth: 0, p: { xs: 2, md: 4 } }}>
         <Toolbar />
-        {children}
+        <Box sx={{ maxWidth: 1280, mx: 'auto' }}>{children}</Box>
       </Box>
     </Box>
   );

@@ -1,8 +1,15 @@
-import { useState } from 'react';
-import { Box, Button, Card, CardContent, CssBaseline, ThemeProvider, Typography } from '@mui/material';
+// The Material UI presentation of the real application. It uses the same SessionProvider, Router
+// and UnreadProvider as the Original UI (mounted above the design switcher), the same route paths
+// and the same ROUTE_PERMISSIONS; only the components that draw the screens differ.
+import { useEffect } from 'react';
+import { Alert, Box, CircularProgress, CssBaseline, ThemeProvider } from '@mui/material';
 import { theme } from './theme.js';
 import Layout from './Layout.jsx';
-import { currentUser, notifications as initialNotifications } from './mockData.js';
+import { NavLink } from './shared.jsx';
+import Login from './pages/auth/Login.jsx';
+import Register from './pages/auth/Register.jsx';
+import ForgotPassword from './pages/auth/ForgotPassword.jsx';
+import ResetPassword from './pages/auth/ResetPassword.jsx';
 import Dashboard from './pages/Dashboard.jsx';
 import Projects from './pages/Projects.jsx';
 import ProjectDetails from './pages/ProjectDetails.jsx';
@@ -12,72 +19,79 @@ import TaskDetails from './pages/TaskDetails.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Users from './pages/Users.jsx';
 import Profile from './pages/Profile.jsx';
+import { Routes, useRouter } from '../router/Router.jsx';
+import { useSession } from '../auth/SessionContext.jsx';
+import { ROUTES, ROUTE_PERMISSIONS } from '../router/routes.js';
+import { hasAnyPermission } from '../utils/permissions.js';
 
-// Isolated preview: navigation is plain component state, so the app's real router is untouched.
+const centered = { minHeight: '100vh', display: 'grid', placeItems: 'center' };
+
+/** Same rules as the Original RouteGuard: signed-out users go to login; permissions are an any-of list. */
+function Guard({ permissions, children }) {
+  const { user, loading } = useSession();
+  const { pathname, navigate } = useRouter();
+
+  useEffect(() => {
+    if (loading || user) return;
+    navigate(`${ROUTES.LOGIN}?next=${encodeURIComponent(pathname)}`, { replace: true });
+  }, [loading, user, pathname, navigate]);
+
+  if (loading) return <Box sx={centered}><CircularProgress /></Box>;
+  if (!user) return null;
+  return (
+    <Layout>
+      {permissions && !hasAnyPermission(user, permissions)
+        ? <Alert severity="warning">You do not have permission to view this page.</Alert>
+        : children}
+    </Layout>
+  );
+}
+
+const guarded = (path, render) => ({
+  path,
+  element: (params) => <Guard permissions={ROUTE_PERMISSIONS[path]}>{render(params)}</Guard>,
+});
+
+/** "/" sends a signed-in user to the dashboard and everyone else to login. */
+function Home() {
+  const { navigate } = useRouter();
+  const { user, loading } = useSession();
+  useEffect(() => {
+    if (!loading) navigate(user ? ROUTES.DASHBOARD : ROUTES.LOGIN, { replace: true });
+  }, [loading, user, navigate]);
+  return <Box sx={centered}><CircularProgress /></Box>;
+}
+
+const routes = [
+  { path: ROUTES.LOGIN, element: () => <Login /> },
+  { path: ROUTES.REGISTER, element: () => <Register /> },
+  { path: ROUTES.FORGOT_PASSWORD, element: () => <ForgotPassword /> },
+  { path: ROUTES.RESET_PASSWORD, element: () => <ResetPassword /> },
+  { path: ROUTES.HOME, element: () => <Home /> },
+  guarded(ROUTES.DASHBOARD, () => <Dashboard />),
+  guarded(ROUTES.PROFILE, () => <Profile />),
+  guarded(ROUTES.USERS, () => <Users />),
+  guarded(ROUTES.PROJECTS, () => <Projects />),
+  guarded(ROUTES.PROJECT, ({ id }) => <ProjectDetails key={id} id={Number(id)} />),
+  guarded(ROUTES.TASKS, () => <Tasks />),
+  guarded(ROUTES.TASK, ({ id }) => <TaskDetails key={id} id={Number(id)} />),
+  guarded(ROUTES.MY_TASKS, () => <MyTasks />),
+  guarded(ROUTES.NOTIFICATIONS, () => <Notifications />),
+];
+
+const notFound = (
+  <Guard>
+    <Alert severity="info">
+      This page does not exist. <NavLink to={ROUTES.DASHBOARD}>Back to the dashboard</NavLink>
+    </Alert>
+  </Guard>
+);
+
 export default function MaterialApp() {
-  const [view, setView] = useState({ page: 'dashboard' });
-  const [items, setItems] = useState(initialNotifications);
-
-  const go = (page, id) => setView({ page, id });
-  const unread = items.filter((n) => !n.read).length;
-
-  let content;
-  switch (view.page) {
-    case 'dashboard':
-      content = <Dashboard onOpenTask={(id) => go('task', id)} onOpenProject={(id) => go('project', id)} />;
-      break;
-    case 'projects':
-      content = <Projects onOpenProject={(id) => go('project', id)} />;
-      break;
-    case 'project':
-      content = <ProjectDetails projectId={view.id} onBack={() => go('projects')} onOpenTask={(id) => go('task', id)} />;
-      break;
-    case 'tasks':
-      content = <Tasks onOpenTask={(id) => go('task', id)} />;
-      break;
-    case 'my-tasks':
-      content = <MyTasks onOpenTask={(id) => go('task', id)} />;
-      break;
-    case 'task':
-      content = <TaskDetails taskId={view.id} onBack={() => go('tasks')} />;
-      break;
-    case 'notifications':
-      content = (
-        <Notifications
-          items={items}
-          onMarkRead={(id) => setItems((l) => l.map((n) => (n.id === id ? { ...n, read: true } : n)))}
-          onMarkAllRead={() => setItems((l) => l.map((n) => ({ ...n, read: true })))}
-        />
-      );
-      break;
-    case 'users':
-      content = <Users />;
-      break;
-    case 'profile':
-      content = <Profile user={currentUser} />;
-      break;
-    default:
-      content = (
-        <Card sx={{ maxWidth: 480, mx: 'auto', mt: 8 }}>
-          <CardContent sx={{ textAlign: 'center', py: 5 }}>
-            <Typography variant="h6">You have been logged out</Typography>
-            <Typography color="text.secondary" sx={{ my: 1.5 }}>
-              This is a design preview; no real session exists.
-            </Typography>
-            <Button variant="contained" onClick={() => go('dashboard')}>
-              Back to dashboard
-            </Button>
-          </CardContent>
-        </Card>
-      );
-  }
-
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
-      <Layout page={view.page} onNavigate={(page) => go(page)} unread={unread} user={currentUser}>
-        <Box sx={{ maxWidth: 1280, mx: 'auto' }}>{content}</Box>
-      </Layout>
+      <Routes routes={routes} fallback={notFound} />
     </ThemeProvider>
   );
 }

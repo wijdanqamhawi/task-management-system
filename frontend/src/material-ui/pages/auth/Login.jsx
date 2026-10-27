@@ -65,6 +65,11 @@ export default function Login() {
           />
           <NavLink to={ROUTES.FORGOT_PASSWORD}>Forgot password?</NavLink>
         </Box>
+        <Typography variant="caption" aria-live="polite" sx={{ mt: -1.5, color: 'text.secondary' }}>
+          {remember
+            ? 'You’ll stay signed in on this device after closing the browser.'
+            : 'You’ll be signed out when the browser session ends.'}
+        </Typography>
         <Button type="submit" variant="contained" size="large" disabled={submitting}>
           {submitting ? 'Signing in…' : 'Sign in'}
         </Button>

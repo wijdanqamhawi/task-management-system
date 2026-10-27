@@ -221,6 +221,11 @@ export default function Login() {
             Forgot password?
           </Link>
         </div>
+        <p className="login__hint" aria-live="polite">
+          {remember
+            ? 'You’ll stay signed in on this device after closing the browser.'
+            : 'You’ll be signed out when the browser session ends.'}
+        </p>
 
         <Button
           type="submit"

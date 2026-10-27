@@ -333,6 +333,13 @@
   cursor: pointer;
 }
 
+/* Explains what the Remember me checkbox does; updates as it is toggled. */
+.login__hint {
+  margin: calc(var(--sp-2) * -1) 0 0;
+  font-size: var(--fs-sm);
+  color: var(--login-muted);
+}
+
 .login__forgot {
   font-size: var(--fs-base);
   font-weight: 500;

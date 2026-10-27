@@ -35,7 +35,6 @@ export default function TaskTable({ tasks, user, managedIds, onChanged, empty, s
         <>
           <Link to={`/tasks/${t.taskId}`} className="text-link">{t.title}</Link>
           {t.overdue && <Badge kind="overdue">Overdue</Badge>}
-          {shared && <Badge kind="shared">Shared</Badge>}
         </>
       ) },
     ...(showProject ? [{ key: 'projectName', header: 'Project',

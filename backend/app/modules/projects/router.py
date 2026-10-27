@@ -2,7 +2,7 @@
 from datetime import date
 from typing import Literal
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, Query, Response
 from pydantic import BaseModel, Field, field_validator
 
 from app.common.access import require_project_visible
@@ -83,9 +83,10 @@ def add_member(project_id: int, body: MemberBody, user: dict = Depends(current_u
 
 
 @router.delete("/{project_id}/members/{user_id}")
-def remove_member(project_id: int, user_id: int, user: dict = Depends(current_user),
-                  db: Db = Depends(get_db)):
-    return service.remove_member(db, user, project_id, user_id)
+def remove_member(project_id: int, user_id: int,
+                  replacementUserId: int | None = Query(default=None, gt=0),
+                  user: dict = Depends(current_user), db: Db = Depends(get_db)):
+    return service.remove_member(db, user, project_id, user_id, replacementUserId)
 
 
 @router.get("/{project_id}/progress")

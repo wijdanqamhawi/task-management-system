@@ -7,7 +7,7 @@ import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
 import ProjectForm from '../components/ProjectForm.jsx';
 import TaskTable from '../components/TaskTable.jsx';
-import { Badge, Button, Table, TextInput } from '../components/index.jsx';
+import { Badge, Button, Modal, Select, Table, TextInput } from '../components/index.jsx';
 import { Async, ConfirmDialog, Notice, PageHeader } from '../components/common.jsx';
 import { Link } from '../router/Link.jsx';
 import { useRouter } from '../router/Router.jsx';
@@ -20,6 +20,36 @@ import { searchTasks } from '../api/tasks.js';
 import { PROJECT_STATUS_LABELS, ROLE_LABELS } from '../constants.js';
 import { canDeleteProject, canManageMembers, canUpdateProject } from '../utils/permissions.js';
 import { fmtDate, errorMessage } from '../utils/format.js';
+
+/**
+ * An ADMIN leaving a project must hand responsibility to another ADMIN or MANAGER who is already
+ * a member. The list is built from the members already loaded; the API re-checks every rule.
+ */
+function TransferDialog({ eligible, busy, onCancel, onConfirm }) {
+  const [choice, setChoice] = useState('');
+  const options = [{ value: '', label: eligible.length ? 'Select a replacement…' : 'No eligible members' },
+    ...eligible.map((m) => ({ value: String(m.userId), label: `${m.fullName} (${ROLE_LABELS[m.role]})` }))];
+  return (
+    <Modal title="Transfer Project Responsibility" onClose={busy ? undefined : onCancel}>
+      <p>Before you leave this project, choose who takes over responsibility for it. Any tasks in
+        this project assigned to you will be unassigned.</p>
+      <div className="field">
+        <label htmlFor="replacement">Replacement (Admin or Manager)</label>
+        <Select id="replacement" value={choice} options={options} disabled={busy || eligible.length === 0}
+                onChange={(e) => setChoice(e.target.value)} />
+      </div>
+      {eligible.length === 0 && (
+        <p className="muted small">There is no other Admin or Manager in this project. Add one first; you cannot leave until then.</p>
+      )}
+      <div className="row row--end">
+        <Button type="button" onClick={onCancel} disabled={busy}>Cancel</Button>
+        <Button type="button" variant="danger" disabled={busy || choice === ''} onClick={() => onConfirm(Number(choice))}>
+          {busy ? 'Working…' : 'Confirm & Leave'}
+        </Button>
+      </div>
+    </Modal>
+  );
+}
 
 function MemberPicker({ existingIds, onAdd, busy }) {
   const [value, setValue] = useState('');
@@ -98,8 +128,10 @@ export default function Project({ id }) {
     { key: 'fullName', header: 'Name', render: (m) => <strong>{m.fullName}</strong> },
     { key: 'email', header: 'Email' },
     { key: 'role', header: 'Role', render: (m) => <Badge value={m.role}>{ROLE_LABELS[m.role]}</Badge> },
+    // Managers never see Remove on their own row; only an ADMIN may remove themselves (via the transfer dialog).
     ...(mayManageMembers ? [{ key: 'actions', header: '',
-      render: (m) => <Button type="button" disabled={busy} onClick={() => setRemoving(m)}>Remove</Button> }] : []),
+      render: (m) => (m.userId === user.userId && user.role !== 'ADMIN' ? null
+        : <Button type="button" disabled={busy} onClick={() => setRemoving(m)}>Remove</Button>) }] : []),
   ];
 
   return (
@@ -185,7 +217,19 @@ export default function Project({ id }) {
                 onCancel={() => setConfirmDelete(false)}
                 onConfirm={() => guarded(async () => { await deleteProject(projectId); navigate('/projects'); })} />
             )}
-            {removing && (
+            {removing && removing.userId === user.userId && (
+              <TransferDialog busy={busy}
+                eligible={members.filter((m) => m.userId !== user.userId && m.isActive
+                  && (m.role === 'ADMIN' || m.role === 'MANAGER'))}
+                onCancel={() => setRemoving(null)}
+                onConfirm={(replacementId) => guarded(async () => {
+                  await removeMember(projectId, user.userId, replacementId);
+                  setRemoving(null);
+                  refreshAll();
+                  setNotice('Responsibility was transferred and you have left the project.');
+                })} />
+            )}
+            {removing && removing.userId !== user.userId && (
               <ConfirmDialog title="Remove member" danger confirmLabel="Remove" busy={busy}
                 message={`Remove ${removing.fullName} from this project? Any tasks in this project assigned to them will be unassigned.`}
                 onCancel={() => setRemoving(null)}

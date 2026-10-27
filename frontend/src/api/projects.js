@@ -9,4 +9,6 @@ export const deleteProject = (id) => api.delete(`/projects/${id}`);
 export const getProgress = (id, opts) => api.get(`/projects/${id}/progress`, opts);
 export const listMembers = (id, opts) => api.get(`/projects/${id}/members`, opts);
 export const addMember = (id, userId) => api.post(`/projects/${id}/members`, { userId });
-export const removeMember = (id, userId) => api.delete(`/projects/${id}/members/${userId}`);
+// replacementUserId is only sent when an ADMIN removes themselves (the API requires it then).
+export const removeMember = (id, userId, replacementUserId) =>
+  api.delete(`/projects/${id}/members/${userId}${query({ replacementUserId })}`);

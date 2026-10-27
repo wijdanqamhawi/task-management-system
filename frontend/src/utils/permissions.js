@@ -37,6 +37,9 @@ export const canManageUserStatus = (user) => hasPermission(user, P.USER_STATUS_M
 /** The Users screen: reachable with either user-administration permission. */
 export const canAdministerUsers = (user) => hasAnyPermission(user, [P.USER_ROLE_ASSIGN, P.USER_STATUS_MANAGE]);
 
+/** Other users' performance (Dashboard selector): the same gate the API applies. */
+export const canViewOthersPerformance = (user) => hasAnyPermission(user, [P.TASK_ASSIGN, P.PROJECT_VIEW_ALL]);
+
 // ------------------------------------------------------------------ resource scope
 
 /**

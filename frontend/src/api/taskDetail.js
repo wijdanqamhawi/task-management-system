@@ -1,10 +1,13 @@
-/* Subtasks, comments and attachments: contracts/rest-api.md § Subtasks, comments, attachments. */
+/* Progress (stored as subtasks; the /subtasks paths are unchanged), comments and attachments:
+   contracts/rest-api.md § Subtasks, comments, attachments. */
 import { api } from './client.js';
 
-export const listSubtasks = (taskId, opts) => api.get(`/tasks/${taskId}/subtasks`, opts);
-export const addSubtask = (taskId, title) => api.post(`/tasks/${taskId}/subtasks`, { title });
-export const updateSubtask = (id, body) => api.put(`/subtasks/${id}`, body);
-export const deleteSubtask = (id) => api.delete(`/subtasks/${id}`);
+export const listProgress = (taskId, opts) => api.get(`/tasks/${taskId}/subtasks`, opts);
+export const addProgress = (taskId, body) => api.post(`/tasks/${taskId}/subtasks`, body);
+export const updateProgress = (id, body) => api.put(`/subtasks/${id}`, body);
+/** Completion only: the API rejects any other field on this endpoint. */
+export const setProgressCompleted = (id, isCompleted) => api.put(`/subtasks/${id}/completion`, { isCompleted });
+export const deleteProgress = (id) => api.delete(`/subtasks/${id}`);
 
 export const listComments = (taskId, opts) => api.get(`/tasks/${taskId}/comments`, opts);
 export const addComment = (taskId, body) => api.post(`/tasks/${taskId}/comments`, { body });

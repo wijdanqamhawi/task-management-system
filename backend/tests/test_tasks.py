@@ -103,7 +103,9 @@ def test_only_manager_of_project_or_admin_may_edit_task_details(world, login):
     assert admin.put(f"/api/tasks/{created}", json={"title": "ZZTEST admin edit"}).status_code == 200
     assert member.patch(f"/api/tasks/{assigned}/status", json={"status": "IN_PROGRESS"}).status_code == 204
     assert member.post(f"/api/tasks/{assigned}/comments", json={"body": "ZZTEST ok"}).status_code == 201
-    assert member.post(f"/api/tasks/{assigned}/subtasks", json={"title": "ZZTEST s"}).status_code == 201
+    # Progress items are created by managers only (PROGRESS_MANAGE); a member gets 403.
+    assert member.post(f"/api/tasks/{assigned}/subtasks",
+                       json={"title": "ZZTEST s", "startAt": "2026-01-01T09:00", "endAt": "2026-01-01T23:59"}).status_code == 403
 
 
 def test_every_status_is_reachable_in_both_directions_and_others_are_rejected(world):
@@ -123,7 +125,7 @@ def test_every_status_is_reachable_in_both_directions_and_others_are_rejected(wo
 def test_parent_can_complete_with_incomplete_subtasks(world):
     mgr = world["manager"]
     tid = make_task(mgr, world["pid"])["taskId"]
-    mgr.post(f"/api/tasks/{tid}/subtasks", json={"title": "ZZTEST open subtask"})
+    mgr.post(f"/api/tasks/{tid}/subtasks", json={"title": "ZZTEST open subtask", "startAt": "2026-01-01T09:00", "endAt": "2026-01-01T23:59"})
     assert mgr.patch(f"/api/tasks/{tid}/status", json={"status": "COMPLETED"}).status_code == 204
 
 
@@ -220,7 +222,7 @@ def test_delete_permissions_and_cascade(world, dbc):
     mgr, member = world["manager"], world["member"]
     by_manager = make_task(mgr, world["pid"])["taskId"]
     by_member = make_task(member, world["pid"])["taskId"]
-    mgr.post(f"/api/tasks/{by_member}/subtasks", json={"title": "ZZTEST s"})
+    mgr.post(f"/api/tasks/{by_member}/subtasks", json={"title": "ZZTEST s", "startAt": "2026-01-01T09:00", "endAt": "2026-01-01T23:59"})
     mgr.post(f"/api/tasks/{by_member}/comments", json={"body": "ZZTEST c"})
     assert member.delete(f"/api/tasks/{by_manager}").status_code == 403    # not creator, not manager
     assert member.delete(f"/api/tasks/{by_member}").status_code == 204    # creator

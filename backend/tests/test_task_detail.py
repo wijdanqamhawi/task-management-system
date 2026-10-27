@@ -16,23 +16,26 @@ def ctx(login, new_project):
     return {"manager": manager, "member": member, "outsider": outsider, "tid": tid}
 
 
-def test_subtask_lifecycle(ctx):
-    m, tid = ctx["member"], ctx["tid"]
-    created = m.post(f"/api/tasks/{tid}/subtasks", json={"title": "ZZTEST step", "sortOrder": 1})
+def test_progress_lifecycle(ctx):
+    """Full role matrix lives in tests/rbac/test_progress.py (TMS_TEST); this is the demo-data smoke."""
+    mgr, m, tid = ctx["manager"], ctx["member"], ctx["tid"]
+    body = {"title": "ZZTEST step", "startAt": "2026-03-04T09:30", "endAt": "2026-03-04T23:59", "sortOrder": 1}
+    assert m.post(f"/api/tasks/{tid}/subtasks", json=body).status_code == 403
+    created = mgr.post(f"/api/tasks/{tid}/subtasks", json=body)
     assert created.status_code == 201 and created.json()["isCompleted"] is False
+    assert created.json()["startAt"].startswith("2026-03-04T09:30")
     sid = created.json()["subtaskId"]
-    done = m.put(f"/api/subtasks/{sid}", json={"isCompleted": True})
-    assert done.status_code == 200 and done.json()["isCompleted"] is True
-    assert done.json()["title"] == "ZZTEST step"
-    assert [s["subtaskId"] for s in m.get(f"/api/tasks/{tid}/subtasks").json()] == [sid]
-    assert ctx["outsider"].put(f"/api/subtasks/{sid}", json={"isCompleted": False}).status_code == 404
+    assert m.put(f"/api/subtasks/{sid}/completion", json={"isCompleted": True}).status_code == 403  # not assigned
+    assert ctx["outsider"].put(f"/api/subtasks/{sid}/completion", json={"isCompleted": False}).status_code == 404
     assert ctx["outsider"].delete(f"/api/subtasks/{sid}").status_code == 404
-    assert m.delete(f"/api/subtasks/{sid}").status_code == 204
+    assert [s["subtaskId"] for s in m.get(f"/api/tasks/{tid}/subtasks").json()] == [sid]
+    assert mgr.delete(f"/api/subtasks/{sid}").status_code == 204
     assert m.get(f"/api/tasks/{tid}/subtasks").json() == []
 
 
-def test_blank_subtask_title_is_rejected(ctx):
-    assert ctx["member"].post(f"/api/tasks/{ctx['tid']}/subtasks", json={"title": "  "}).status_code == 400
+def test_blank_progress_title_is_rejected(ctx):
+    body = {"title": "  ", "startAt": "2026-03-04T09:30", "endAt": "2026-03-04T23:59"}
+    assert ctx["manager"].post(f"/api/tasks/{ctx['tid']}/subtasks", json=body).status_code == 400
 
 
 def test_comments_ordered_with_author(ctx):

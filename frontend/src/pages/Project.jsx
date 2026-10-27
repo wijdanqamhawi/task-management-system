@@ -181,7 +181,7 @@ export default function Project({ id }) {
             )}
             {confirmDelete && (
               <ConfirmDialog title="Delete project" danger confirmLabel="Delete project" busy={busy}
-                message={`Delete "${p.name}" and all of its tasks, subtasks, comments and attachments? This cannot be undone.`}
+                message={`Delete "${p.name}" and all of its tasks, progress items, comments and attachments? This cannot be undone.`}
                 onCancel={() => setConfirmDelete(false)}
                 onConfirm={() => guarded(async () => { await deleteProject(projectId); navigate('/projects'); })} />
             )}

@@ -164,6 +164,15 @@ that project and returns `{ projectId, userId, removedAssignments, unassignedTas
 a summary of what was unassigned — the edge case recorded in `spec.md` (a task must not stay
 assigned to someone who can no longer see its project).
 
+Self-removal: only an **Admin** may remove themselves, and only with `?replacementUserId={id}` naming
+a different, active **Admin or Manager** who is already a member of the project. Ownership of the
+project (`projects.created_by`) moves to the replacement when the leaving Admin holds it, in the same
+transaction as the removal; any failure rolls both back. The response also carries
+`responsibilityTransferredTo` (the replacement id, or `null` when ownership did not move).
+Missing or ineligible replacement: `400` with `fieldErrors.replacementUserId`. A **Manager** or
+**Member** removing themselves: `403` (a Member cannot remove anyone). `replacementUserId` is
+rejected with `400` when removing somebody else.
+
 ---
 
 ## Tasks — `/api/tasks`

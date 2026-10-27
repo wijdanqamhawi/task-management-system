@@ -6,7 +6,7 @@ from app.common.access import (project_visibility_clause, require_project_manage
 from app.common.paging import PageParams, page_response
 from app.common.permissions import PROJECT_DELETE, PROJECT_MEMBER_MANAGE, PROJECT_UPDATE
 from app.db import Db, is_unique_violation
-from app.errors import bad_request, conflict, not_found
+from app.errors import bad_request, conflict, forbidden, not_found
 from app.modules.attachments import storage
 from app.modules.dashboard import repository as dashboard_repo
 
@@ -132,28 +132,88 @@ def add_member(db: Db, user: dict, project_id: int, member_id: int) -> dict:
     return next(m for m in list_members(db, project_id) if m["userId"] == member_id)
 
 
-def remove_member(db: Db, user: dict, project_id: int, member_id: int) -> dict:
+ELIGIBLE_REPLACEMENT_ROLES = ("ADMIN", "MANAGER")
+
+
+def _replacement(db: Db, project_id: int, leaving_id: int, replacement_id: int | None) -> dict:
+    """The member who takes over when an ADMIN leaves. Every failure is a 400 on the field, so
+    the transfer cannot be skipped or pointed at someone ineligible by calling the API directly."""
+    if replacement_id is None:
+        raise bad_request("Choose a replacement before leaving the project",
+                          replacementUserId="a replacement ADMIN or MANAGER is required")
+    if replacement_id == leaving_id:
+        raise bad_request("The replacement must be a different user",
+                          replacementUserId="must be a different user")
+    row = db.one(
+        """SELECT u.user_id, u.is_active, r.role_name AS role
+             FROM project_members pm
+             JOIN users u ON u.user_id = pm.user_id
+             JOIN roles r ON r.role_id = u.role_id
+            WHERE pm.project_id = :p AND pm.user_id = :u""",
+        {"p": project_id, "u": replacement_id})
+    if row is None:
+        raise bad_request("The replacement must be an existing member of this project",
+                          replacementUserId="not a member of this project")
+    if row["role"] not in ELIGIBLE_REPLACEMENT_ROLES:
+        raise bad_request("The replacement must have the ADMIN or MANAGER role",
+                          replacementUserId="must be an ADMIN or MANAGER")
+    if not row["is_active"]:
+        raise bad_request("The replacement must be an active user",
+                          replacementUserId="user is deactivated")
+    return row
+
+
+def remove_member(db: Db, user: dict, project_id: int, member_id: int,
+                  replacement_id: int | None = None) -> dict:
     """Remove a member AND their task assignments within this project only, returning a
-    summary of what was unassigned (FR-014, FR-019, spec Edge Cases)."""
+    summary of what was unassigned (FR-014, FR-019, spec Edge Cases).
+
+    Self-removal: only an ADMIN may leave, and only after naming a replacement (an active ADMIN or
+    MANAGER who is already a member). Responsibility for the project is `projects.created_by`; when
+    the leaving ADMIN holds it, it moves to the replacement in the SAME transaction as the removal.
+    Any failure rolls the whole thing back. MANAGER and MEMBER can never remove themselves."""
     require_project_manager(db, user, project_id, PROJECT_MEMBER_MANAGE)
     if not db.scalar("SELECT COUNT(*) FROM project_members WHERE project_id = :p AND user_id = :u",
                      {"p": project_id, "u": member_id}):
         raise not_found("User is not a member of this project")
-    unassigned = db.query(
-        """SELECT t.task_id, t.title FROM task_assignees ta JOIN tasks t ON t.task_id = ta.task_id
-            WHERE t.project_id = :p AND ta.user_id = :u ORDER BY t.task_id""",
-        {"p": project_id, "u": member_id})
-    db.execute(
-        """DELETE FROM task_assignees
-            WHERE user_id = :u
-              AND task_id IN (SELECT t.task_id FROM tasks t WHERE t.project_id = :p)""",
-        {"u": member_id, "p": project_id})
-    db.execute("DELETE FROM project_members WHERE project_id = :p AND user_id = :u",
-               {"p": project_id, "u": member_id})
-    db.commit()
+
+    is_self = member_id == user["user_id"]
+    if is_self and user["role"] != "ADMIN":
+        raise forbidden("Only an administrator can leave a project, and only after choosing a replacement")
+    if not is_self and replacement_id is not None:
+        raise bad_request("A replacement only applies when you remove yourself",
+                          replacementUserId="not allowed when removing another member")
+
+    transferred = False
+    try:
+        if is_self:
+            # Lock the project row so the replacement cannot change under us mid-transfer.
+            db.scalar("SELECT created_by FROM projects WHERE project_id = :p FOR UPDATE",
+                      {"p": project_id})
+            _replacement(db, project_id, member_id, replacement_id)
+            transferred = db.execute(
+                "UPDATE projects SET created_by = :r, updated_at = SYSTIMESTAMP "
+                "WHERE project_id = :p AND created_by = :u",
+                {"r": replacement_id, "p": project_id, "u": member_id}) > 0
+        unassigned = db.query(
+            """SELECT t.task_id, t.title FROM task_assignees ta JOIN tasks t ON t.task_id = ta.task_id
+                WHERE t.project_id = :p AND ta.user_id = :u ORDER BY t.task_id""",
+            {"p": project_id, "u": member_id})
+        db.execute(
+            """DELETE FROM task_assignees
+                WHERE user_id = :u
+                  AND task_id IN (SELECT t.task_id FROM tasks t WHERE t.project_id = :p)""",
+            {"u": member_id, "p": project_id})
+        db.execute("DELETE FROM project_members WHERE project_id = :p AND user_id = :u",
+                   {"p": project_id, "u": member_id})
+        db.commit()
+    except Exception:
+        db.rollback()       # nothing is kept: not the transfer, not the unassignments
+        raise
     return {"projectId": project_id, "userId": member_id,
             "removedAssignments": len(unassigned),
-            "unassignedTasks": [{"taskId": r["task_id"], "title": r["title"]} for r in unassigned]}
+            "unassignedTasks": [{"taskId": r["task_id"], "title": r["title"]} for r in unassigned],
+            "responsibilityTransferredTo": replacement_id if transferred else None}
 
 
 def progress(db: Db, user: dict, project_id: int) -> dict:

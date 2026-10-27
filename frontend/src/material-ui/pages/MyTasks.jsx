@@ -1,44 +1,63 @@
 import { useState } from 'react';
-import { Card, CardContent, MenuItem, Stack, TextField, Typography } from '@mui/material';
-import { currentUser, projects, STATUSES, STATUS_LABEL, tasks } from '../mockData.js';
-import { PageHeader, PriorityChip } from '../shared.jsx';
+import { Alert, Card, CardContent, Stack, Typography } from '@mui/material';
+import { AsyncView, PagerBar, PageHeader, PriorityChip, TaskStatus } from '../shared.jsx';
+import { useApi } from '../../hooks/useApi.js';
+import { useVisibleProjects } from '../../hooks/useVisibleProjects.js';
+import { useSession } from '../../auth/SessionContext.jsx';
+import { useRouter } from '../../router/Router.jsx';
+import { assignedToMe, sharedWithMe } from '../../api/tasks.js';
+import { fmtDate } from '../../utils/format.js';
 
-export default function MyTasks({ onOpenTask }) {
-  // Local-only status changes so the controls feel real in the preview.
-  const [statuses, setStatuses] = useState(() => Object.fromEntries(tasks.map((t) => [t.id, t.status])));
-  const mine = tasks.filter((t) => t.assignees.includes(currentUser.id));
+function Group({ title, hint, loader, empty, user, managedIds }) {
+  const { navigate } = useRouter();
+  const [page, setPage] = useState(0);
+  const [error, setError] = useState('');
+  const state = useApi((signal) => loader({ page, size: 10, sort: 'dueDate' }, { signal }), [page]);
 
   return (
+    <section aria-label={title}>
+      <Typography variant="h6">{title}</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{hint}</Typography>
+      {error && <Alert severity="error" onClose={() => setError('')} sx={{ mb: 2 }}>{error}</Alert>}
+      <AsyncView state={state}>
+        {(data) => (
+          <>
+            {data.content.length === 0 && <Typography color="text.secondary">{empty}</Typography>}
+            <Stack spacing={2}>
+              {data.content.map((t) => (
+                <Card key={t.taskId}>
+                  <CardContent>
+                    <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}>
+                      <Stack spacing={0.5} onClick={() => navigate(`/tasks/${t.taskId}`)} sx={{ cursor: 'pointer', flex: 1 }}>
+                        <Typography variant="h6">{t.title}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {t.projectName} · Due {fmtDate(t.dueDate)}{t.overdue ? ' · Overdue' : ''}
+                        </Typography>
+                      </Stack>
+                      <PriorityChip priority={t.priority} />
+                      <TaskStatus task={t} user={user} managedIds={managedIds} onChanged={state.reload} onError={setError} />
+                    </Stack>
+                  </CardContent>
+                </Card>
+              ))}
+            </Stack>
+            <PagerBar data={data} onPage={setPage} />
+          </>
+        )}
+      </AsyncView>
+    </section>
+  );
+}
+
+export default function MyTasks() {
+  const { user } = useSession();
+  const visible = useVisibleProjects();
+  return (
     <>
-      <PageHeader title="My Tasks" subtitle={`${mine.length} tasks assigned to ${currentUser.fullName}`} />
-      <Stack spacing={2}>
-        {mine.map((t) => (
-          <Card key={t.id}>
-            <CardContent>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ alignItems: { md: 'center' }, justifyContent: 'space-between' }}>
-                <Stack spacing={0.5} onClick={() => onOpenTask(t.id)} sx={{ cursor: 'pointer', flex: 1 }}>
-                  <Typography variant="h6">{t.title}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {projects.find((p) => p.id === t.projectId).title} · Due {t.due}
-                  </Typography>
-                </Stack>
-                <PriorityChip priority={t.priority} />
-                <TextField
-                  select
-                  size="small"
-                  label="Status"
-                  value={statuses[t.id]}
-                  onChange={(e) => setStatuses((s) => ({ ...s, [t.id]: e.target.value }))}
-                  sx={{ minWidth: 170 }}
-                >
-                  {STATUSES.map((s) => (
-                    <MenuItem key={s} value={s}>{STATUS_LABEL[s]}</MenuItem>
-                  ))}
-                </TextField>
-              </Stack>
-            </CardContent>
-          </Card>
-        ))}
+      <PageHeader title="My Tasks" subtitle="Work assigned to you, and work shared with you through your projects." />
+      <Stack spacing={5}>
+        <Group title="Assigned to me" hint="Tasks you are responsible for." loader={assignedToMe} empty="Nothing is assigned to you right now." user={user} managedIds={visible.ids} />
+        <Group title="Shared with me" hint="Tasks in your projects that are assigned to someone else." loader={sharedWithMe} empty="No other tasks in your projects." user={user} managedIds={visible.ids} />
       </Stack>
     </>
   );

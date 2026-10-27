@@ -1,53 +1,46 @@
-import { Avatar, AvatarGroup, Box, Chip, LinearProgress, Stack, Tooltip, Typography } from '@mui/material';
-import { PRIORITIES, STATUS_LABEL, users } from './mockData.js';
+import { useState } from 'react';
+import { Alert, Avatar, Box, Button, Chip, CircularProgress, Link as MuiLink, LinearProgress, MenuItem, Pagination, Stack, TextField, Tooltip, Typography } from '@mui/material';
+import { useRouter } from '../router/Router.jsx';
+import { changeStatus } from '../api/tasks.js';
+import { PRIORITY_LABELS, PROJECT_STATUS_LABELS, ROLE_LABELS, STATUSES, STATUS_LABELS } from '../constants.js';
+import { canChangeStatus } from '../utils/permissions.js';
+import { errorMessage, initials } from '../utils/format.js';
 
-export const userById = (id) => users.find((u) => u.id === id);
-
-const STATUS_COLOR = { TODO: 'default', IN_PROGRESS: 'primary', DONE: 'success', BLOCKED: 'error' };
-const PRIORITY_COLOR = { LOW: 'default', MEDIUM: 'info', HIGH: 'warning', URGENT: 'error' };
-const PROJECT_STATUS = {
-  ACTIVE: { label: 'Active', color: 'primary' },
-  ON_HOLD: { label: 'On Hold', color: 'warning' },
-  COMPLETED: { label: 'Completed', color: 'success' },
-};
+const STATUS_COLOR = { TO_DO: 'default', IN_PROGRESS: 'primary', REVIEW: 'warning', COMPLETED: 'success' };
+const PRIORITY_COLOR = { LOW: 'default', MEDIUM: 'info', HIGH: 'warning' };
+const PROJECT_STATUS_COLOR = { PLANNED: 'warning', ACTIVE: 'primary', COMPLETED: 'success' };
 
 export function StatusChip({ status }) {
-  return <Chip size="small" label={STATUS_LABEL[status]} color={STATUS_COLOR[status]} variant={status === 'TODO' ? 'outlined' : 'filled'} />;
+  return <Chip size="small" label={STATUS_LABELS[status] ?? status} color={STATUS_COLOR[status]} variant={status === 'TO_DO' ? 'outlined' : 'filled'} />;
 }
 
 export function PriorityChip({ priority }) {
-  const label = priority.charAt(0) + priority.slice(1).toLowerCase();
-  return <Chip size="small" label={label} color={PRIORITY_COLOR[priority]} variant="outlined" />;
+  return <Chip size="small" label={PRIORITY_LABELS[priority] ?? priority} color={PRIORITY_COLOR[priority]} variant="outlined" />;
 }
 
 export function ProjectStatusChip({ status }) {
-  const { label, color } = PROJECT_STATUS[status];
-  return <Chip size="small" label={label} color={color} />;
+  return <Chip size="small" label={PROJECT_STATUS_LABELS[status] ?? status} color={PROJECT_STATUS_COLOR[status]} />;
 }
 
 export function RoleChip({ role }) {
   const color = role === 'ADMIN' ? 'error' : role === 'MANAGER' ? 'primary' : 'default';
-  return <Chip size="small" label={role} color={color} variant="outlined" />;
+  return <Chip size="small" label={ROLE_LABELS[role] ?? role} color={color} variant="outlined" />;
 }
 
-const initials = (name) => name.split(' ').map((p) => p[0]).join('').slice(0, 2);
-
-export function UserAvatar({ userId, size = 28 }) {
-  const user = userById(userId);
+export function UserAvatar({ name, size = 28 }) {
   return (
-    <Tooltip title={user.fullName}>
-      <Avatar sx={{ width: size, height: size, fontSize: size * 0.42, bgcolor: 'primary.main' }}>{initials(user.fullName)}</Avatar>
+    <Tooltip title={name}>
+      <Avatar sx={{ width: size, height: size, fontSize: size * 0.42, bgcolor: 'primary.main' }}>{initials(name)}</Avatar>
     </Tooltip>
   );
 }
 
-export function MemberAvatars({ ids, size = 28 }) {
+export function AssigneeAvatars({ assignees, size = 28 }) {
+  if (!assignees?.length) return <Typography variant="body2" color="text.secondary">Unassigned</Typography>;
   return (
-    <AvatarGroup max={4} sx={{ '& .MuiAvatar-root': { width: size, height: size, fontSize: size * 0.42, bgcolor: 'primary.main' } }}>
-      {ids.map((id) => (
-        <Avatar key={id}>{initials(userById(id).fullName)}</Avatar>
-      ))}
-    </AvatarGroup>
+    <Box sx={{ display: 'flex', gap: 0.5 }}>
+      {assignees.map((a) => <UserAvatar key={a.userId} name={a.fullName} size={size} />)}
+    </Box>
   );
 }
 
@@ -78,4 +71,54 @@ export function PageHeader({ title, subtitle, action }) {
   );
 }
 
-export { PRIORITIES };
+/** Renders a useApi() state: spinner while loading, an error with retry, else children(data). */
+export function AsyncView({ state, children }) {
+  if (state.error) {
+    return (
+      <Alert severity="error" action={<Button color="inherit" size="small" onClick={state.reload}>Retry</Button>}>
+        {state.error}
+      </Alert>
+    );
+  }
+  if (!state.data) return <Box sx={{ display: 'grid', placeItems: 'center', py: 6 }}><CircularProgress /></Box>;
+  return children(state.data);
+}
+
+/** Pager for the API's page envelope ({ page, totalPages }); hidden when there is one page. */
+export function PagerBar({ data, onPage }) {
+  if (!data || data.totalPages <= 1) return null;
+  return (
+    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+      <Pagination count={data.totalPages} page={data.page + 1} onChange={(_, p) => onPage(p - 1)} color="primary" />
+    </Box>
+  );
+}
+
+/** A link that navigates with the app's own router (no page reload). */
+export function NavLink({ to, children, ...rest }) {
+  const { navigate } = useRouter();
+  const onClick = (e) => {
+    if (e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    e.preventDefault();
+    navigate(to);
+  };
+  return <MuiLink href={to} onClick={onClick} underline="hover" {...rest}>{children}</MuiLink>;
+}
+
+/**
+ * Status of a task: a select when the existing rules (canChangeStatus) allow this user to change
+ * it, otherwise a chip. The API enforces the same rule.
+ */
+export function TaskStatus({ task, user, managedIds, onChanged, onError }) {
+  const [busy, setBusy] = useState(false);
+  if (!canChangeStatus(user, task, managedIds)) return <StatusChip status={task.status} />;
+  const change = async (status) => {
+    setBusy(true);
+    try { await changeStatus(task.taskId, status); onChanged?.(); } catch (e) { onError?.(errorMessage(e)); } finally { setBusy(false); }
+  };
+  return (
+    <TextField select size="small" label="Status" value={task.status} disabled={busy} onChange={(e) => change(e.target.value)} sx={{ minWidth: 170 }}>
+      {STATUSES.map((s) => <MenuItem key={s} value={s}>{STATUS_LABELS[s]}</MenuItem>)}
+    </TextField>
+  );
+}

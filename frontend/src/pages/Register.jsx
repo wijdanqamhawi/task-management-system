@@ -25,18 +25,18 @@ import { ROUTES } from '../router/routes.js';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD_LENGTH = 8;
 
-function nameError(value) {
+export function nameError(value) {
   return value.trim() ? undefined : 'Enter your name.';
 }
 
-function emailError(value) {
+export function emailError(value) {
   const trimmed = value.trim();
   if (!trimmed) return 'Enter your email address.';
   if (!EMAIL_PATTERN.test(trimmed)) return 'Please enter a valid email address.';
   return undefined;
 }
 
-function passwordError(value) {
+export function passwordError(value) {
   if (!value) return 'Enter a password.';
   if (value.length < MIN_PASSWORD_LENGTH) {
     return `Password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
@@ -44,7 +44,7 @@ function passwordError(value) {
   return undefined;
 }
 
-function confirmPasswordError(password, confirmPassword) {
+export function confirmPasswordError(password, confirmPassword) {
   if (!confirmPassword) return 'Confirm your password.';
   if (confirmPassword !== password) return 'Passwords do not match.';
   return undefined;

@@ -17,52 +17,40 @@ import {
   addMember, deleteProject, getProject, getProgress, removeMember, updateProject,
 } from '../api/projects.js';
 import { searchTasks } from '../api/tasks.js';
-import { listUsers } from '../api/users.js';
 import { PROJECT_STATUS_LABELS, ROLE_LABELS } from '../constants.js';
 import { canDeleteProject, canManageMembers, canUpdateProject } from '../utils/permissions.js';
 import { fmtDate, errorMessage } from '../utils/format.js';
 
 function MemberPicker({ existingIds, onAdd, busy }) {
-  const [term, setTerm] = useState('');
-  const [results, setResults] = useState(null);
+  const [value, setValue] = useState('');
   const [error, setError] = useState('');
 
-  async function search(e) {
+  async function submit(e) {
     e.preventDefault();
     setError('');
-    try {
-      const page = await listUsers({ search: term.trim(), size: 10 });
-      setResults(page.content.filter((u) => u.isActive && !existingIds.has(u.userId)));
-    } catch (err) {
-      setError(errorMessage(err));
+    // Quick feedback only; the API re-checks the ID, active status and membership.
+    if (!/^[1-9]\d*$/.test(value)) {
+      setError('Enter a valid User ID (a positive whole number).');
+      return;
     }
+    if (existingIds.has(Number(value))) {
+      setError('That user is already a member of this project.');
+      return;
+    }
+    if (await onAdd(Number(value))) setValue('');
   }
 
   return (
-    <div className="stack">
-      <form className="row" role="search" onSubmit={search}>
-        <div className="spacer" style={{ minWidth: 180 }}>
-          <TextInput type="search" value={term} onChange={(e) => setTerm(e.target.value)}
-                     placeholder="Find a user to add" aria-label="Find a user to add" />
-        </div>
-        <Button type="submit">Search</Button>
-      </form>
+    <form className="row" onSubmit={submit} noValidate>
+      <div className="spacer" style={{ minWidth: 180 }}>
+        <TextInput type="text" inputMode="numeric" pattern="[0-9]*" value={value}
+                   onChange={(e) => { setValue(e.target.value.replace(/\D/g, '')); setError(''); }}
+                   placeholder="Enter User ID" aria-label="Enter User ID"
+                   aria-invalid={error ? 'true' : undefined} />
+      </div>
+      <Button type="submit" disabled={busy || value === ''}>Add Member</Button>
       <Notice>{error}</Notice>
-      {results && results.length === 0 && <p className="muted small">No matching users outside this project.</p>}
-      {results && results.length > 0 && (
-        <ul className="item-list" aria-label="Search results">
-          {results.map((u) => (
-            <li key={u.userId}>
-              <span className="item-list__main">{u.fullName} <span className="muted small">({u.email})</span></span>
-              <Button type="button" disabled={busy} onClick={async () => {
-                await onAdd(u.userId);
-                setResults((r) => r.filter((x) => x.userId !== u.userId));
-              }}>Add</Button>
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
+    </form>
   );
 }
 
@@ -95,8 +83,10 @@ export default function Project({ id }) {
     try {
       await action();
       if (success) setNotice(success);
+      return true;
     } catch (e) {
       setError(errorMessage(e));
+      return false;
     } finally {
       setBusy(false);
     }
@@ -160,7 +150,11 @@ export default function Project({ id }) {
                 <>
                   <hr />
                   <MemberPicker busy={busy} existingIds={new Set(members.map((m) => m.userId))}
-                    onAdd={(uid) => guarded(async () => { await addMember(projectId, uid); project.reload(); }, 'Member added.')} />
+                    onAdd={(uid) => guarded(async () => {
+                      const m = await addMember(projectId, uid);
+                      project.reload();
+                      setNotice(`${m.fullName} was added to the project.`);
+                    })} />
                 </>
               )}
             </section>

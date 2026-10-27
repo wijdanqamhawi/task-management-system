@@ -31,7 +31,7 @@ class ProjectBody(BaseModel):
 
 
 class MemberBody(BaseModel):
-    userId: int
+    userId: int = Field(gt=0)
 
 
 def _fields(body: ProjectBody) -> dict:

@@ -38,7 +38,9 @@ USING (
   SELECT 'TASK_DELETE_ANY',       'Delete any task of a project the user manages'                         FROM dual UNION ALL
   SELECT 'TASK_DELETE_OWN',       'Delete a task the user created'                                        FROM dual UNION ALL
   SELECT 'COMMENT_CREATE',        'Comment on a visible task'                                             FROM dual UNION ALL
-  SELECT 'SUBTASK_MANAGE',        'Add, edit and delete subtasks of a visible task'                       FROM dual UNION ALL
+  SELECT 'SUBTASK_MANAGE',        'Legacy: no longer checked by the application (see PROGRESS_*)'         FROM dual UNION ALL
+  SELECT 'PROGRESS_MANAGE',       'Create, edit and delete Progress items; project managers only'         FROM dual UNION ALL
+  SELECT 'PROGRESS_TOGGLE',       'Mark a Progress item completed or incomplete; managers and assignees'  FROM dual UNION ALL
   SELECT 'ATTACHMENT_UPLOAD',     'Upload attachments to a visible task'                                  FROM dual UNION ALL
   SELECT 'ATTACHMENT_DELETE_ANY', 'Delete any attachment on a project the user manages'                   FROM dual UNION ALL
   SELECT 'ATTACHMENT_DELETE_OWN', 'Delete an attachment the user uploaded'                                FROM dual
@@ -48,9 +50,9 @@ WHEN NOT MATCHED THEN
   INSERT (permission_code, description) VALUES (src.permission_code, src.description);
 
 -- ------------------------------------------------------------------ role_permissions
--- ADMIN: everything (21). Listed explicitly so a permission added later is not granted silently.
--- MANAGER: project and task management, but no user administration and no *_ALL bypass (17).
--- MEMBER: work on tasks of projects they belong to (9).
+-- ADMIN: everything (23). Listed explicitly so a permission added later is not granted silently.
+-- MANAGER: project and task management, but no user administration and no *_ALL bypass (19).
+-- MEMBER: work on tasks of projects they belong to (10).
 MERGE INTO role_permissions rp
 USING (
   SELECT r.role_id, p.permission_id
@@ -73,6 +75,8 @@ USING (
       SELECT 'ADMIN', 'TASK_DELETE_OWN'       FROM dual UNION ALL
       SELECT 'ADMIN', 'COMMENT_CREATE'        FROM dual UNION ALL
       SELECT 'ADMIN', 'SUBTASK_MANAGE'        FROM dual UNION ALL
+      SELECT 'ADMIN', 'PROGRESS_MANAGE'       FROM dual UNION ALL
+      SELECT 'ADMIN', 'PROGRESS_TOGGLE'       FROM dual UNION ALL
       SELECT 'ADMIN', 'ATTACHMENT_UPLOAD'     FROM dual UNION ALL
       SELECT 'ADMIN', 'ATTACHMENT_DELETE_ANY' FROM dual UNION ALL
       SELECT 'ADMIN', 'ATTACHMENT_DELETE_OWN' FROM dual UNION ALL
@@ -90,6 +94,8 @@ USING (
       SELECT 'MANAGER', 'TASK_DELETE_OWN'       FROM dual UNION ALL
       SELECT 'MANAGER', 'COMMENT_CREATE'        FROM dual UNION ALL
       SELECT 'MANAGER', 'SUBTASK_MANAGE'        FROM dual UNION ALL
+      SELECT 'MANAGER', 'PROGRESS_MANAGE'       FROM dual UNION ALL
+      SELECT 'MANAGER', 'PROGRESS_TOGGLE'       FROM dual UNION ALL
       SELECT 'MANAGER', 'ATTACHMENT_UPLOAD'     FROM dual UNION ALL
       SELECT 'MANAGER', 'ATTACHMENT_DELETE_ANY' FROM dual UNION ALL
       SELECT 'MANAGER', 'ATTACHMENT_DELETE_OWN' FROM dual UNION ALL
@@ -100,6 +106,7 @@ USING (
       SELECT 'MEMBER', 'TASK_DELETE_OWN'       FROM dual UNION ALL
       SELECT 'MEMBER', 'COMMENT_CREATE'        FROM dual UNION ALL
       SELECT 'MEMBER', 'SUBTASK_MANAGE'        FROM dual UNION ALL
+      SELECT 'MEMBER', 'PROGRESS_TOGGLE'       FROM dual UNION ALL
       SELECT 'MEMBER', 'ATTACHMENT_UPLOAD'     FROM dual UNION ALL
       SELECT 'MEMBER', 'ATTACHMENT_DELETE_OWN' FROM dual
     ) m
@@ -112,7 +119,7 @@ WHEN NOT MATCHED THEN
 
 COMMIT;
 
-PROMPT RBAC data loaded. Expect 21 permissions and 47 role_permissions (ADMIN 21, MANAGER 17, MEMBER 9):
+PROMPT RBAC data loaded. Expect 23 permissions and 52 role_permissions (ADMIN 23, MANAGER 19, MEMBER 10):
 SELECT r.role_name, COUNT(rp.permission_id) AS permission_count
   FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.role_id
  GROUP BY r.role_name ORDER BY r.role_name;

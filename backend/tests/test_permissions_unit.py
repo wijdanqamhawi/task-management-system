@@ -20,12 +20,12 @@ SEED = Path(__file__).resolve().parents[2] / "database" / "seed" / "rbac_data.sq
 ADMIN_PERMS = frozenset(perms.ALL_PERMISSIONS)
 MEMBER_PERMS = frozenset({
     perms.PROJECT_VIEW, perms.TASK_VIEW, perms.TASK_CREATE, perms.TASK_STATUS_CHANGE,
-    perms.TASK_DELETE_OWN, perms.COMMENT_CREATE, perms.SUBTASK_MANAGE, perms.ATTACHMENT_UPLOAD,
-    perms.ATTACHMENT_DELETE_OWN})
+    perms.TASK_DELETE_OWN, perms.COMMENT_CREATE, perms.SUBTASK_MANAGE, perms.PROGRESS_TOGGLE,
+    perms.ATTACHMENT_UPLOAD, perms.ATTACHMENT_DELETE_OWN})
 MANAGER_PERMS = MEMBER_PERMS | {
     perms.PROJECT_CREATE, perms.PROJECT_UPDATE, perms.PROJECT_DELETE,
     perms.PROJECT_MEMBER_MANAGE, perms.TASK_EDIT, perms.TASK_ASSIGN, perms.TASK_DELETE_ANY,
-    perms.ATTACHMENT_DELETE_ANY}
+    perms.ATTACHMENT_DELETE_ANY, perms.PROGRESS_MANAGE}
 
 
 def user(permissions, user_id=1, role="MEMBER"):
@@ -53,7 +53,7 @@ def _seed_text():
 def test_constants_match_the_seeded_catalogue():
     block = _seed_text().split("-- ----")[1]          # the permissions MERGE
     codes = set(re.findall(r"SELECT '([A-Z_]+)'(?: AS permission_code)?,", block))
-    assert codes == set(perms.ALL_PERMISSIONS) and len(codes) == 21
+    assert codes == set(perms.ALL_PERMISSIONS) and len(codes) == 23
 
 
 def test_expected_role_sets_match_the_seeded_grants():
@@ -63,7 +63,7 @@ def test_expected_role_sets_match_the_seeded_grants():
     for role, code in grants:
         by_role.setdefault(role, set()).add(code)
     assert by_role == {"ADMIN": ADMIN_PERMS, "MANAGER": MANAGER_PERMS, "MEMBER": MEMBER_PERMS}
-    assert [len(by_role[r]) for r in ("ADMIN", "MANAGER", "MEMBER")] == [21, 17, 9]
+    assert [len(by_role[r]) for r in ("ADMIN", "MANAGER", "MEMBER")] == [23, 19, 10]
 
 
 # ------------------------------------------------------------------ has_permission

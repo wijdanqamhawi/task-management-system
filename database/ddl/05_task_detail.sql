@@ -1,4 +1,4 @@
--- T018 — SUBTASKS, COMMENTS, ATTACHMENTS. FR-024..FR-026.
+-- T018 — SUBTASKS (shown as "Progress" in the UI), COMMENTS, ATTACHMENTS. FR-024..FR-026.
 -- Every child cascades from TASKS so SC-011 holds for any route into the data:
 -- no orphaned subtask, comment, or attachment is ever reachable.
 
@@ -9,7 +9,11 @@ CREATE TABLE subtasks (
   is_completed CHAR(1) DEFAULT 'N' NOT NULL,
   sort_order   NUMBER(4) DEFAULT 0 NOT NULL,
   created_at   TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+  progress_at  TIMESTAMP,   -- DEPRECATED (migration 002): single date/time, no longer written; API alias of start_at
+  start_at     TIMESTAMP,   -- when the Progress item begins; NULL on rows that predate migration 003
+  end_at       TIMESTAMP,   -- when it should finish; NULL on rows that predate migration 003
   CONSTRAINT ck_subtasks_completed CHECK (is_completed IN ('Y','N')),
+  CONSTRAINT ck_subtasks_end_after_start CHECK (start_at IS NULL OR end_at IS NULL OR end_at > start_at),
   CONSTRAINT fk_subtasks_task FOREIGN KEY (task_id)
     REFERENCES tasks (task_id) ON DELETE CASCADE
 );

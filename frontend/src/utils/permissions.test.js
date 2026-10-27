@@ -4,7 +4,7 @@
  * No browser, no network, no database.
  *
  * The role -> permission sets below are the seeded grants (database/seed/rbac_data.sql:
- * ADMIN 21, MANAGER 17, MEMBER 9). The PARITY test compares every helper with the pre-RBAC
+ * ADMIN 23, MANAGER 19, MEMBER 10). The PARITY test compares every helper with the pre-RBAC
  * role-name rules over the whole scenario matrix, so the UI offers exactly what it did before.
  */
 import test from 'node:test';
@@ -17,16 +17,17 @@ import { ROUTES, ROUTE_PERMISSIONS } from '../router/routes.js';
 import {
   canAdministerUsers, canAssign, canAssignRoles, canChangeStatus, canCreateProject,
   canDeleteAttachment, canDeleteProject, canDeleteTask, canEditTask, canManageMembers,
-  canManageUserStatus, canUpdateProject, canViewAllProjects, hasAnyPermission, hasPermission,
+  canManageProgress, canManageUserStatus, canToggleProgress, canUpdateProject, canViewAllProjects, hasAnyPermission, hasPermission,
   isManagerOf, normalizePermissions,
 } from './permissions.js';
 
 const ALL = Object.values(P);
 const MEMBER_SET = [P.PROJECT_VIEW, P.TASK_VIEW, P.TASK_CREATE, P.TASK_STATUS_CHANGE,
-  P.TASK_DELETE_OWN, P.COMMENT_CREATE, P.SUBTASK_MANAGE, P.ATTACHMENT_UPLOAD,
+  P.TASK_DELETE_OWN, P.COMMENT_CREATE, P.SUBTASK_MANAGE, P.PROGRESS_TOGGLE, P.ATTACHMENT_UPLOAD,
   P.ATTACHMENT_DELETE_OWN];
 const MANAGER_SET = [...MEMBER_SET, P.PROJECT_CREATE, P.PROJECT_UPDATE, P.PROJECT_DELETE,
-  P.PROJECT_MEMBER_MANAGE, P.TASK_EDIT, P.TASK_ASSIGN, P.TASK_DELETE_ANY, P.ATTACHMENT_DELETE_ANY];
+  P.PROJECT_MEMBER_MANAGE, P.TASK_EDIT, P.TASK_ASSIGN, P.TASK_DELETE_ANY, P.ATTACHMENT_DELETE_ANY,
+  P.PROGRESS_MANAGE];
 const GRANTS = { ADMIN: ALL, MANAGER: MANAGER_SET, MEMBER: MEMBER_SET };
 
 const PROJECT = 10;
@@ -34,11 +35,11 @@ const user = (id, role, permissions = GRANTS[role]) => ({ userId: id, role, perm
 
 // ------------------------------------------------------------------ the seeded sets
 
-test('the role sets are the seeded 21 / 17 / 9 grants and use only existing codes', () => {
-  assert.equal(ALL.length, 21);
-  assert.equal(new Set(ALL).size, 21);
-  assert.equal(MANAGER_SET.length, 17);
-  assert.equal(MEMBER_SET.length, 9);
+test('the role sets are the seeded 23 / 19 / 10 grants and use only existing codes', () => {
+  assert.equal(ALL.length, 23);
+  assert.equal(new Set(ALL).size, 23);
+  assert.equal(MANAGER_SET.length, 19);
+  assert.equal(MEMBER_SET.length, 10);
   for (const set of Object.values(GRANTS)) for (const code of set) assert.ok(ALL.includes(code));
 });
 
@@ -187,6 +188,28 @@ test('delete attachment: the uploader, or a manager of the project', () => {
   assert.equal(canDeleteAttachment(user(3, 'MANAGER'), file, PROJECT, new Set()), false);
   assert.equal(canDeleteAttachment(user(1, 'ADMIN'), file, PROJECT, new Set()), true);
   assert.equal(canDeleteAttachment(user(5, 'MEMBER', []), file, PROJECT, inProject), false);
+});
+
+test('progress manage: ADMIN, or a MANAGER of that project; never a MEMBER', () => {
+  const inProject = new Set([PROJECT]);
+  assert.equal(canManageProgress(user(1, 'ADMIN'), PROJECT, new Set()), true);
+  assert.equal(canManageProgress(user(2, 'MANAGER'), PROJECT, inProject), true);
+  assert.equal(canManageProgress(user(3, 'MANAGER'), PROJECT, new Set()), false);      // manager elsewhere
+  assert.equal(canManageProgress(user(4, 'MEMBER'), PROJECT, inProject), false);
+  assert.equal(canManageProgress({ userId: 1, role: 'ADMIN', permissions: [] }, PROJECT, inProject), false);
+});
+
+test('progress toggle: managers and admin, or an assignee of THAT task; permission required', () => {
+  const inProject = new Set([PROJECT]);
+  const task = { projectId: PROJECT, assignees: [{ userId: 4 }] };
+  assert.equal(canToggleProgress(user(1, 'ADMIN'), task, new Set()), true);
+  assert.equal(canToggleProgress(user(2, 'MANAGER'), task, inProject), true);
+  assert.equal(canToggleProgress(user(3, 'MANAGER'), task, new Set()), false);         // manager elsewhere
+  assert.equal(canToggleProgress(user(4, 'MEMBER'), task, inProject), true);           // the assignee
+  assert.equal(canToggleProgress(user(5, 'MEMBER'), task, inProject), false);          // not assigned
+  assert.equal(canToggleProgress(user(4, 'MEMBER', MEMBER_SET.filter((c) => c !== P.PROGRESS_TOGGLE)), task, inProject), false);
+  assert.equal(canToggleProgress(user(4, 'MEMBER'), undefined, inProject), false);
+  assert.equal(canToggleProgress(undefined, task, inProject), false);
 });
 
 // ------------------------------------------------------------------ parity with the pre-RBAC rules

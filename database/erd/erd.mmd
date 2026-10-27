@@ -98,6 +98,9 @@ erDiagram
         CHAR      is_completed "Y | N"
         NUMBER    sort_order
         TIMESTAMP created_at
+        TIMESTAMP progress_at "DEPRECATED single date/time (migration 002); API alias of start_at"
+        TIMESTAMP start_at "Progress start; NULL only on rows older than migration 003"
+        TIMESTAMP end_at "Progress end, must be later than start_at; NULL on older rows"
     }
     COMMENTS {
         NUMBER    comment_id PK

@@ -92,3 +92,20 @@ export function canDeleteAttachment(user, attachment, projectId, managedProjectI
   return hasPermission(user, P.ATTACHMENT_DELETE_OWN) && user.userId != null
     && attachment.uploadedBy === user.userId;
 }
+
+// ------------------------------------------------------------------ progress actions
+
+/** Create, edit and delete Progress items: PROGRESS_MANAGE and manager scope of the project. */
+export const canManageProgress = (user, projectId, ids) => isManagerOf(user, projectId, ids, P.PROGRESS_MANAGE);
+
+/**
+ * Check or uncheck a Progress item: PROGRESS_TOGGLE and then either manager scope (a manager of
+ * the project, or PROJECT_MANAGE_ALL) or being an assignee of THIS task. MEMBER holds the
+ * permission, so it alone is never enough.
+ */
+export function canToggleProgress(user, task, managedProjectIds) {
+  if (!user || !task) return false;
+  if (!hasPermission(user, P.PROGRESS_TOGGLE)) return false;
+  if (isManagerOf(user, task.projectId, managedProjectIds, P.PROGRESS_MANAGE)) return true;
+  return task.assignees?.some((a) => a.userId === user.userId) === true;
+}

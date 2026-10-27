@@ -114,6 +114,9 @@ erDiagram
         CHAR      is_completed "Y | N"
         NUMBER    sort_order
         TIMESTAMP created_at
+        TIMESTAMP progress_at "DEPRECATED single date/time (migration 002); API alias of start_at"
+        TIMESTAMP start_at "Progress start; NULL only on rows older than migration 003"
+        TIMESTAMP end_at "Progress end, must be later than start_at; NULL on older rows"
     }
     COMMENTS {
         NUMBER    comment_id PK
@@ -170,7 +173,7 @@ it, so building it would add a write path no test could justify (Constitution I)
 | `TASK_PRIORITY` | Reference data. LOW, MEDIUM, HIGH. |
 | `TASKS` | Title, description, status, priority, start and due dates, project, creator. |
 | `TASK_ASSIGNEES` | Join table: tasks ↔ users. A task may have several assignees. |
-| `SUBTASKS` | Breakdown of a parent task, with its own completion flag. |
+| `SUBTASKS` | Shown as **Progress** in the UI: dated checklist items of a task, each with its own completion flag and a required `start_at` and `end_at` (End later than Start; `progress_at` is deprecated and no longer written). |
 | `COMMENTS` | Discussion on a task, with author and timestamp. |
 | `ATTACHMENTS` | File metadata. Bytes live on the filesystem, not in the database. |
 | `NOTIFICATIONS` | Recipient, trigger type, message, read flag. |

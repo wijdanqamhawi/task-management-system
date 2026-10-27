@@ -1,5 +1,5 @@
 /*
- * Task detail: edit, status, assignees, subtasks, attachments, comments
+ * Task detail: edit, status, assignees, progress, attachments, comments
  * (FR-017..FR-026, FR-034). A task outside the caller's projects is a 404 from the API, which
  * this screen shows as "Task not found" without saying whether it exists (FR-053).
  *
@@ -11,7 +11,7 @@
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
 import TaskForm from '../components/TaskForm.jsx';
-import { AttachmentsPanel, CommentsPanel, SubtasksPanel } from '../components/TaskPanels.jsx';
+import { AttachmentsPanel, CommentsPanel, ProgressPanel } from '../components/TaskPanels.jsx';
 import { Badge, Button, Select } from '../components/index.jsx';
 import { Async, ConfirmDialog, Notice, PageHeader, StatusSelect } from '../components/common.jsx';
 import { Link } from '../router/Link.jsx';
@@ -153,7 +153,7 @@ export default function Task({ id }) {
               </div>
 
               <div className="cols cols--2">
-                <SubtasksPanel taskId={taskId} />
+                <ProgressPanel task={t} user={user} managedIds={visible.ids} />
                 <AttachmentsPanel taskId={taskId} user={user} projectId={t.projectId} managedIds={visible.ids} />
               </div>
               <CommentsPanel taskId={taskId} />
@@ -164,7 +164,7 @@ export default function Task({ id }) {
               )}
               {confirmDelete && (
                 <ConfirmDialog title="Delete task" danger confirmLabel="Delete task" busy={busy}
-                  message={`Delete "${t.title}" with its subtasks, comments and attachments? This cannot be undone.`}
+                  message={`Delete "${t.title}" with its progress items, comments and attachments? This cannot be undone.`}
                   onCancel={() => setConfirmDelete(false)} onConfirm={() => remove(t)} />
               )}
             </>

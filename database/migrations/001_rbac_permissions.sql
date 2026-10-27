@@ -86,7 +86,8 @@ PROMPT == Step 2: permission catalogue and role grants (insert-only MERGE)
 @@../seed/rbac_data.sql
 
 PROMPT == Step 3: verification (read-only)
--- Expect 21 permissions; ADMIN 21, MANAGER 17, MEMBER 9 (above). Existing data is unchanged.
+-- Expect 21 permissions; ADMIN 21, MANAGER 17, MEMBER 9 when 001 was first applied (rbac_data.sql now also
+-- seeds the two PROGRESS_* permissions added by migration 002: 23 / 23, 19, 10). Existing data is unchanged.
 SELECT 'roles'             AS table_name, COUNT(*) AS row_count FROM roles
 UNION ALL SELECT 'permissions',      COUNT(*) FROM permissions
 UNION ALL SELECT 'role_permissions', COUNT(*) FROM role_permissions

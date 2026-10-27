@@ -108,7 +108,7 @@ a.dash__nav-item { text-decoration: none; }
 }
 .item-list > li:last-child { border-bottom: 0; }
 .item-list__main { min-width: 0; flex: 1 1 200px; overflow-wrap: anywhere; }
-.subtask--done .item-list__main span { text-decoration: line-through; color: var(--c-text-muted); }
+.progress-title--done { text-decoration: line-through; color: var(--c-text-muted); }
 .comment__meta { font-size: var(--fs-sm); color: var(--c-text-muted); }
 .notif { cursor: pointer; }
 .notif--unread { background: var(--c-accent-soft); border-radius: 8px; padding-left: var(--sp-3) !important; padding-right: var(--sp-3) !important; font-weight: 600; }
@@ -155,3 +155,38 @@ a.dash__nav-item { text-decoration: none; }
 .user-card__meta { margin: 0; color: var(--c-text-muted); font-size: var(--fs-sm); overflow-wrap: anywhere; }
 .user-card__controls { display: flex; flex-wrap: wrap; gap: var(--sp-3); align-items: center; }
 .user-card__controls .select { flex: 1 1 140px; min-width: 0; }
+
+/* ---- Progress panel (task page): cards, icon buttons, add/edit form ---- */
+.pg__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-2) var(--sp-3); margin-bottom: var(--sp-3); }
+.pg__head .panel__title { margin: 0; }
+.pg__count { font-size: var(--fs-sm); font-weight: 600; color: var(--c-accent); background: var(--c-accent-soft); border-radius: 999px; padding: 2px var(--sp-3); }
+.pg__empty { margin: 0 0 var(--sp-3); }
+.pg__hint { margin: var(--sp-3) 0 0; }
+.pg__list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--sp-2); }
+.pg-item { border: 1px solid var(--c-border); border-radius: var(--radius-md); background: var(--c-surface); padding: var(--sp-3) var(--sp-4); display: flex; flex-direction: column; gap: var(--sp-2); }
+.pg-item--done { background: #f7f9fc; }
+.pg-item--editing { border-color: var(--c-accent); background: var(--c-accent-soft); }
+.pg-item__top { display: flex; align-items: flex-start; justify-content: space-between; gap: var(--sp-3); min-width: 0; }
+.pg-item__check { display: flex; align-items: flex-start; gap: var(--sp-3); min-width: 0; flex: 1 1 auto; cursor: pointer; }
+.pg-item__check input { width: 18px; height: 18px; flex: 0 0 auto; margin: 2px 0 0; }
+.pg-item__title { min-width: 0; overflow-wrap: anywhere; font-size: var(--fs-base); font-weight: 600; line-height: 1.4; unicode-bidi: plaintext; text-align: start; }
+.pg-item__actions { display: flex; gap: var(--sp-1); flex: 0 0 auto; }
+.pg-item__dates { display: flex; flex-wrap: wrap; gap: var(--sp-1) var(--sp-5); padding-left: calc(18px + var(--sp-3)); font-size: var(--fs-sm); color: var(--c-text-muted); }
+.pg-item__dates span, .pg-field__label { display: inline-flex; align-items: center; gap: 6px; }
+.icon-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; padding: 0; border: 1px solid transparent; border-radius: var(--radius-sm); background: transparent; color: var(--c-text-muted); cursor: pointer; }
+.icon-btn:hover:not(:disabled) { background: var(--c-accent-soft); color: var(--c-accent); border-color: var(--c-border); }
+.icon-btn--danger:hover:not(:disabled) { background: var(--c-danger-soft); color: var(--c-danger); }
+.icon-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+.icon-btn:focus-visible { outline: 2px solid var(--c-accent); outline-offset: 2px; }
+.pg-add { margin-top: var(--sp-4); padding-top: var(--sp-4); border-top: 1px solid var(--c-border); }
+.pg-add__title { margin: 0 0 var(--sp-3); font-size: var(--fs-base); font-weight: 700; }
+.pg-form { display: flex; flex-direction: column; gap: var(--sp-3); min-width: 0; }
+.pg-form__dates { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: var(--sp-3); }
+.pg-form__actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: var(--sp-2); }
+.pg-field { display: flex; flex-direction: column; gap: var(--sp-1); min-width: 0; }
+.pg-field__label { font-size: var(--fs-sm); color: var(--c-text-muted); }
+.pg-field .input { background: var(--c-surface); }
+@media (max-width: 480px) {
+  .pg-item { padding: var(--sp-3); }
+  .pg-form__actions .btn { flex: 1 1 auto; justify-content: center; }
+}

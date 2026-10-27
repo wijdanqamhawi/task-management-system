@@ -23,9 +23,9 @@ def test_effective_permissions_come_from_the_database_per_role(world):
             loaded = load_permissions(db, world["ids"][key])
             assert loaded == expected, key
             assert loaded <= perms.ALL_PERMISSIONS
-        assert len(load_permissions(db, world["ids"]["admin"])) == 21
-        assert len(load_permissions(db, world["ids"]["mgr"])) == 17
-        assert len(load_permissions(db, world["ids"]["mem"])) == 9
+        assert len(load_permissions(db, world["ids"]["admin"])) == 23
+        assert len(load_permissions(db, world["ids"]["mgr"])) == 19
+        assert len(load_permissions(db, world["ids"]["mem"])) == 10
 
 
 def test_login_and_me_keep_every_existing_field_and_add_permissions(rbac_app, world):
@@ -216,4 +216,4 @@ def test_changing_grants_in_the_database_changes_access_immediately(world):
     assert c["mgr"].post("/api/projects", json=body).status_code == 201
     assert c["mem"].post("/api/projects", json=body).status_code == 403
     with appdb.connection() as db:
-        assert db.scalar("SELECT COUNT(*) FROM role_permissions") == 47
+        assert db.scalar("SELECT COUNT(*) FROM role_permissions") == 52

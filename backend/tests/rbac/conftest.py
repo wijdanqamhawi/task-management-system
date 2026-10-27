@@ -8,7 +8,7 @@ ZZTEST users, project and tasks, so nothing in TMS_USER is read or written. Guar
 2. One connection attempt and no retries (a bad password must not lock the account).
 3. SESSION_USER must be TMS_TEST on that connection AND again on the application's pool; any
    other schema aborts the whole run.
-4. The schema must hold only ZZTEST rows, with the RBAC tables installed and seeded (21/47).
+4. The schema must hold only ZZTEST rows, with the RBAC tables installed and seeded (23/52).
 5. The application pool must be uninitialised when the fixture starts, and the scheduler must be
    off. The app settings are pointed at TMS_TEST *before* the pool is created.
 6. Tests here may not use the TMS_USER fixtures (anon, login, dbc, app, new_project).
@@ -88,9 +88,9 @@ def tms_test_credentials():
         isolation.validate_contents(set(RBAC_TABLES) - have, set(), foreign)
         counts = (_scalar(conn, "SELECT COUNT(*) FROM permissions"),
                   _scalar(conn, "SELECT COUNT(*) FROM role_permissions"))
-        if counts != (21, 47):
-            pytest.exit(f"ISOLATION GUARD: TMS_TEST RBAC seed is {counts}, expected (21, 47). "
-                        "Apply database/migrations/001_rbac_permissions.sql to TMS_TEST.",
+        if counts != (23, 52):
+            pytest.exit(f"ISOLATION GUARD: TMS_TEST RBAC seed is {counts}, expected (23, 52). "
+                        "Apply database/migrations/001 and 002 to TMS_TEST.",
                         returncode=2)
     except isolation.IsolationError as exc:
         pytest.exit(f"ISOLATION GUARD: {exc}", returncode=2)

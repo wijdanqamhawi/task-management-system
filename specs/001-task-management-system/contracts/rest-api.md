@@ -227,10 +227,11 @@ caller may not assign to others but supplied `assigneeIds` (FR-032, FR-008c).
 
 | Method | Path | Access | Requirement |
 |--------|------|--------|-------------|
-| GET | `/api/tasks/{id}/subtasks` | Member of project | FR-024 |
-| POST | `/api/tasks/{id}/subtasks` | Member of project | FR-024 |
-| PUT | `/api/subtasks/{subtaskId}` | Member of project | FR-024 |
-| DELETE | `/api/subtasks/{subtaskId}` | Member of project | FR-024 |
+| GET | `/api/tasks/{id}/subtasks` | Member of project (shown as **Progress**) | FR-024 |
+| POST | `/api/tasks/{id}/subtasks` | **Manager** of project, Admin (`PROGRESS_MANAGE`); body `title`, `startAt`, `endAt` (all required; `endAt` later than `startAt`, else 400). Responses also carry `progressAt`, a read-only alias of `startAt` (rejected on input) | FR-024 |
+| PUT | `/api/subtasks/{subtaskId}` | **Manager** of project, Admin (`PROGRESS_MANAGE`); `title`, `startAt`, `endAt`, `sortOrder` only; the order rule is checked against the merged stored values. Items older than migration 003 may have `endAt: null` until edited | FR-024 |
+| PUT | `/api/subtasks/{subtaskId}/completion` | Manager of project, Admin, or an **assignee** of the task (`PROGRESS_TOGGLE`); body is `{ "isCompleted": bool }` only, anything else is `400` | FR-024 |
+| DELETE | `/api/subtasks/{subtaskId}` | **Manager** of project, Admin (`PROGRESS_MANAGE`) | FR-024 |
 | GET | `/api/tasks/{id}/comments` | Member of project | FR-026 |
 | POST | `/api/tasks/{id}/comments` | Member of project | FR-026 |
 | GET | `/api/tasks/{id}/attachments` | Member of project | FR-025 |

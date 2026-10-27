@@ -1,7 +1,7 @@
 /*
  * My tasks: tasks assigned to me, and tasks shared with me (FR-030, FR-031, FR-035, FR-035a).
  * "Shared" means a task in a project I belong to that is not assigned to me. The two groups
- * are separate panels and shared rows carry a dashed "Shared" badge so they are never confused.
+ * are separate panels, so they are never confused.
  */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';

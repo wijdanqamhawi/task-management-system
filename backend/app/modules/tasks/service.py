@@ -308,9 +308,18 @@ def change_status(db: Db, user: dict, task_id: int, new_status: str) -> None:
                  or is_assignee(db, task_id, user["user_id"])
                  or is_project_manager(db, user, task["project_id"], TASK_EDIT))):
         raise forbidden("Only an assignee, a Manager of the project, or an Admin may change status")
+    # completed_at feeds the performance evaluation: stamped on the move INTO COMPLETED, kept
+    # while it stays there (a legacy NULL is never invented), cleared when the task is reopened.
+    if new_status != "COMPLETED":
+        completed_sql = "NULL"
+    elif task["status"] == "COMPLETED":
+        completed_sql = "completed_at"
+    else:
+        completed_sql = "TRUNC(SYSDATE)"
     db.execute(
         "UPDATE tasks SET status_id = (SELECT status_id FROM task_status WHERE status_code = :s), "
-        "updated_at = SYSTIMESTAMP WHERE task_id = :t", {"s": new_status, "t": task_id})
+        f"completed_at = {completed_sql}, updated_at = SYSTIMESTAMP WHERE task_id = :t",
+        {"s": new_status, "t": task_id})
     _notify_involved(db, task, user,
                      f'Status of "{task["title"]}" changed to {STATUS_LABELS[new_status]}')
     db.commit()

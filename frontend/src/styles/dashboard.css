@@ -469,3 +469,10 @@ button.dash__nav-item:disabled { cursor: not-allowed; opacity: 0.55; }
   background: var(--c-danger-soft);
   border: 1px solid var(--c-danger);
 }
+
+/* Performance card */
+.perf__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--sp-3); }
+.perf__metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: var(--sp-3); margin: var(--sp-3) 0; }
+.perf__metric { padding: var(--sp-3); border: 1px solid var(--login-field-border); border-radius: 10px; background: #fff; }
+.perf__metric-value { margin: 0; font-size: 1.25rem; font-weight: 700; }
+.perf__metric-label { margin: 2px 0 0; font-size: var(--fs-sm); color: var(--login-muted); }

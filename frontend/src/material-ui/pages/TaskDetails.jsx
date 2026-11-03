@@ -16,7 +16,7 @@ import { useRouter } from '../../router/Router.jsx';
 import { assignUsers, deleteTask, getTask, unassignUser, updateTask } from '../../api/tasks.js';
 import { listMembers } from '../../api/projects.js';
 import {
-  addComment, addSubtask, attachmentUrl, deleteAttachment, deleteSubtask, listAttachments, listComments, listSubtasks, updateSubtask, uploadAttachment,
+  addComment, addProgress, attachmentUrl, deleteAttachment, deleteProgress, listAttachments, listComments, listProgress, setProgressCompleted, uploadAttachment,
 } from '../../api/taskDetail.js';
 import { ALLOWED_UPLOAD_TYPES, MAX_UPLOAD_BYTES, UPLOAD_ACCEPT } from '../../constants.js';
 import { canAssign, canDeleteAttachment, canDeleteTask, canEditTask } from '../../utils/permissions.js';
@@ -45,10 +45,13 @@ function usePanelAction(state, setError) {
 }
 
 function Subtasks({ taskId }) {
-  const state = useApi((signal) => listSubtasks(taskId, { signal }), [taskId]);
+  const state = useApi((signal) => listProgress(taskId, { signal }), [taskId]);
   const [title, setTitle] = useState('');
+  const [startAt, setStartAt] = useState('');
+  const [endAt, setEndAt] = useState('');
   const [error, setError] = useState('');
   const { busy, run } = usePanelAction(state, setError);
+  const rangeOk = Boolean(startAt && endAt && endAt > startAt);     // the API rejects endAt <= startAt
 
   return (
     <Card>
@@ -64,9 +67,9 @@ function Subtasks({ taskId }) {
                 <Stack key={s.subtaskId} direction="row" sx={{ alignItems: 'center', justifyContent: 'space-between' }}>
                   <FormControlLabel
                     label={s.title}
-                    control={<Checkbox checked={s.isCompleted} disabled={busy} onChange={() => run(() => updateSubtask(s.subtaskId, { isCompleted: !s.isCompleted }))} />}
+                    control={<Checkbox checked={s.isCompleted} disabled={busy} onChange={() => run(() => setProgressCompleted(s.subtaskId, !s.isCompleted))} />}
                   />
-                  <IconButton size="small" disabled={busy} aria-label={`Delete subtask ${s.title}`} onClick={() => run(() => deleteSubtask(s.subtaskId))}>
+                  <IconButton size="small" disabled={busy} aria-label={`Delete subtask ${s.title}`} onClick={() => run(() => deleteProgress(s.subtaskId))}>
                     <DeleteIcon fontSize="small" />
                   </IconButton>
                 </Stack>
@@ -74,12 +77,19 @@ function Subtasks({ taskId }) {
             </Stack>
           )}
         </AsyncView>
-        <Stack component="form" direction="row" spacing={1.5} sx={{ mt: 2 }} onSubmit={(e) => {
+        <Stack component="form" direction="row" spacing={1.5} sx={{ mt: 2, flexWrap: 'wrap' }} onSubmit={(e) => {
           e.preventDefault();
-          if (title.trim()) run(async () => { await addSubtask(taskId, title.trim()); setTitle(''); });
+          if (title.trim() && rangeOk) {
+            run(async () => { await addProgress(taskId, { title: title.trim(), startAt, endAt }); setTitle(''); setStartAt(''); setEndAt(''); });
+          }
         }}>
-          <TextField size="small" placeholder="Add a subtask" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ flex: 1 }} />
-          <Button type="submit" variant="outlined" disabled={busy || !title.trim()}>Add</Button>
+          <TextField size="small" placeholder="Add a subtask" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ flex: 1, minWidth: 180 }} />
+          <TextField size="small" type="datetime-local" label="Start" value={startAt} onChange={(e) => setStartAt(e.target.value)}
+                     slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField size="small" type="datetime-local" label="End" value={endAt} onChange={(e) => setEndAt(e.target.value)}
+                     error={Boolean(startAt && endAt && !rangeOk)} helperText={startAt && endAt && !rangeOk ? 'End must be after start' : undefined}
+                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: startAt || undefined } }} />
+          <Button type="submit" variant="outlined" disabled={busy || !title.trim() || !rangeOk}>Add</Button>
         </Stack>
       </CardContent>
     </Card>

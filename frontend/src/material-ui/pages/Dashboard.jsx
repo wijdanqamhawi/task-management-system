@@ -3,6 +3,7 @@ import TaskIcon from '@mui/icons-material/TaskAltOutlined';
 import PendingIcon from '@mui/icons-material/AutorenewOutlined';
 import DoneIcon from '@mui/icons-material/CheckCircleOutlined';
 import OverdueIcon from '@mui/icons-material/ErrorOutlined';
+import PerformanceCard from '../PerformanceCard.jsx';
 import { AsyncView, PageHeader, PriorityChip, ProgressBar, StatusChip } from '../shared.jsx';
 import { useApi } from '../../hooks/useApi.js';
 import { useSession } from '../../auth/SessionContext.jsx';
@@ -97,6 +98,10 @@ export default function Dashboard() {
                     </Stack>
                   </CardContent>
                 </Card>
+              </Grid>
+
+              <Grid size={12}>
+                <PerformanceCard me={user} tasksByUser={d.tasksByUser} />
               </Grid>
             </Grid>
           );

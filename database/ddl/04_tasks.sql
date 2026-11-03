@@ -9,6 +9,9 @@ CREATE TABLE tasks (
   priority_id NUMBER        NOT NULL,     -- FR-020
   start_date  DATE,
   due_date    DATE,
+  -- Set when the task moves to COMPLETED, cleared when it leaves it (tasks.service.change_status).
+  -- NULL for tasks completed before this column existed: they are never backfilled.
+  completed_at DATE,
   created_by  NUMBER        NOT NULL,
   created_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
   updated_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,

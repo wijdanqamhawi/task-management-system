@@ -86,3 +86,9 @@
   min-width: 20px; padding: 0 6px; border-radius: 999px;
   background: var(--c-danger); color: #fff; font-size: var(--fs-sm); text-align: center;
 }
+
+/* Schedule badges (performance card). */
+.badge--EARLY         { background: var(--c-success-soft); color: var(--c-status-completed); }
+.badge--ON_TIME       { background: var(--c-accent-soft);  color: var(--c-accent); }
+.badge--LATE          { background: var(--c-danger-soft);  color: var(--c-danger); }
+.badge--NOT_EVALUABLE { background: #eceff3; color: var(--c-text-muted); }

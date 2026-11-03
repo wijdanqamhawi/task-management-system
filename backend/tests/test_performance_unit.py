@@ -134,3 +134,11 @@ def test_manager_sees_only_users_sharing_a_project():
 
 def test_admin_sees_everyone():
     perf._require_may_view(FakeDb(False), ADMIN, 9)
+
+
+def test_unprivileged_caller_gets_403_whether_or_not_the_user_exists():
+    class NoSuchUser(FakeDb):
+        def one(self, sql, params=None):
+            return None                                    # the id does not exist
+    assert status_of(lambda: perf.user_performance(NoSuchUser(False), MEMBER, 999)) == 403
+    assert status_of(lambda: perf.user_performance(NoSuchUser(True), ADMIN, 999)) == 404

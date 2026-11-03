@@ -47,8 +47,11 @@ function usePanelAction(state, setError) {
 function Subtasks({ taskId }) {
   const state = useApi((signal) => listProgress(taskId, { signal }), [taskId]);
   const [title, setTitle] = useState('');
+  const [startAt, setStartAt] = useState('');
+  const [endAt, setEndAt] = useState('');
   const [error, setError] = useState('');
   const { busy, run } = usePanelAction(state, setError);
+  const rangeOk = Boolean(startAt && endAt && endAt > startAt);     // the API rejects endAt <= startAt
 
   return (
     <Card>
@@ -74,12 +77,19 @@ function Subtasks({ taskId }) {
             </Stack>
           )}
         </AsyncView>
-        <Stack component="form" direction="row" spacing={1.5} sx={{ mt: 2 }} onSubmit={(e) => {
+        <Stack component="form" direction="row" spacing={1.5} sx={{ mt: 2, flexWrap: 'wrap' }} onSubmit={(e) => {
           e.preventDefault();
-          if (title.trim()) run(async () => { await addProgress(taskId, { title: title.trim() }); setTitle(''); });
+          if (title.trim() && rangeOk) {
+            run(async () => { await addProgress(taskId, { title: title.trim(), startAt, endAt }); setTitle(''); setStartAt(''); setEndAt(''); });
+          }
         }}>
-          <TextField size="small" placeholder="Add a subtask" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ flex: 1 }} />
-          <Button type="submit" variant="outlined" disabled={busy || !title.trim()}>Add</Button>
+          <TextField size="small" placeholder="Add a subtask" value={title} onChange={(e) => setTitle(e.target.value)} sx={{ flex: 1, minWidth: 180 }} />
+          <TextField size="small" type="datetime-local" label="Start" value={startAt} onChange={(e) => setStartAt(e.target.value)}
+                     slotProps={{ inputLabel: { shrink: true } }} />
+          <TextField size="small" type="datetime-local" label="End" value={endAt} onChange={(e) => setEndAt(e.target.value)}
+                     error={Boolean(startAt && endAt && !rangeOk)} helperText={startAt && endAt && !rangeOk ? 'End must be after start' : undefined}
+                     slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: startAt || undefined } }} />
+          <Button type="submit" variant="outlined" disabled={busy || !title.trim() || !rangeOk}>Add</Button>
         </Stack>
       </CardContent>
     </Card>

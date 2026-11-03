@@ -148,10 +148,12 @@ def _require_may_view(db: Db, viewer: dict, user_id: int) -> None:
 
 
 def user_performance(db: Db, viewer: dict, user_id: int) -> dict:
+    # Permission first: a caller who may not look at others gets the same 403 whether or not the
+    # id exists, so the endpoint cannot be used to probe which accounts exist.
+    _require_may_view(db, viewer, user_id)
     target = db.one("SELECT user_id, full_name FROM users WHERE user_id = :u", {"u": user_id})
     if target is None:
         raise not_found("User not found")
-    _require_may_view(db, viewer, user_id)
     tasks = _assigned_tasks(db, viewer, user_id)
     completed = [t for t in tasks if t["status"] == "COMPLETED"]
     return {"userId": target["user_id"], "fullName": target["full_name"],

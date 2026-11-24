@@ -21,6 +21,7 @@ export const ROUTES = {
   MY_TASKS:      '/my-tasks',
   DASHBOARD:     '/dashboard',
   NOTIFICATIONS: '/notifications',
+  RECYCLE_BIN:   '/recycle-bin',
   HOME:          '/',
 };
 
@@ -30,4 +31,5 @@ export const ROUTES = {
  */
 export const ROUTE_PERMISSIONS = {
   [ROUTES.USERS]: [PERMISSIONS.USER_ROLE_ASSIGN, PERMISSIONS.USER_STATUS_MANAGE],
+  [ROUTES.RECYCLE_BIN]: [PERMISSIONS.RECYCLE_BIN_VIEW],
 };

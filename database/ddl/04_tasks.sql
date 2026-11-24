@@ -12,9 +12,19 @@ CREATE TABLE tasks (
   created_by  NUMBER        NOT NULL,
   created_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
   updated_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
+  -- Soft delete (migration 004): a deleted task stays in this table with all its children and is
+  -- shown only in the Recycle Bin. Keep identical to migrations/004_task_soft_delete.sql.
+  is_deleted  CHAR(1) DEFAULT 'N' NOT NULL,
+  deleted_at  TIMESTAMP,
+  deleted_by  NUMBER,
   -- US3 scenario 5: a due date before the start date must be rejected.
   CONSTRAINT ck_tasks_dates CHECK (due_date IS NULL OR start_date IS NULL
                                    OR due_date >= start_date),
+  CONSTRAINT ck_tasks_deleted_flag CHECK (is_deleted IN ('Y','N')),
+  CONSTRAINT ck_tasks_deleted_consistent CHECK (
+    (is_deleted = 'N' AND deleted_at IS NULL AND deleted_by IS NULL)
+    OR (is_deleted = 'Y' AND deleted_at IS NOT NULL AND deleted_by IS NOT NULL)),
+  CONSTRAINT fk_tasks_deleted_by FOREIGN KEY (deleted_by) REFERENCES users (user_id),
   CONSTRAINT fk_tasks_project  FOREIGN KEY (project_id)
     REFERENCES projects (project_id) ON DELETE CASCADE,
   CONSTRAINT fk_tasks_status   FOREIGN KEY (status_id)   REFERENCES task_status (status_id),

@@ -92,11 +92,12 @@ def test_disallowed_type_oversize_and_empty_leave_no_row_or_file(ctx, dbc):
     assert (len(list(base.iterdir())) if base.exists() else 0) == files_before
 
 
-def test_deleting_a_task_removes_attachment_rows_and_files(ctx, dbc):
+def test_deleting_a_task_keeps_attachment_rows_and_files(ctx, dbc):
     m, tid = ctx["member"], ctx["tid"]
     aid = upload(m, tid).json()["attachmentId"]
     stored = dbc.scalar("SELECT stored_name FROM attachments WHERE attachment_id = :i", {"i": aid})
     assert storage.exists(stored)
     assert ctx["manager"].delete(f"/api/tasks/{tid}").status_code == 204
-    assert dbc.scalar("SELECT COUNT(*) FROM attachments WHERE attachment_id = :i", {"i": aid}) == 0
-    assert not storage.exists(stored)
+    assert dbc.scalar("SELECT COUNT(*) FROM attachments WHERE attachment_id = :i", {"i": aid}) == 1
+    assert storage.exists(stored)                       # soft delete never touches the bytes
+    assert m.get(f"/api/attachments/{aid}").status_code == 404

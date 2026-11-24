@@ -17,6 +17,7 @@ from app.modules.comments.router import router as comments_router
 from app.modules.dashboard.router import router as dashboard_router
 from app.modules.notifications.router import router as notifications_router
 from app.modules.projects.router import router as projects_router
+from app.modules.recycle_bin.router import router as recycle_bin_router
 from app.modules.subtasks.router import router as subtasks_router
 from app.modules.tasks.router import router as tasks_router
 from app.modules.users.router import router as users_router
@@ -51,6 +52,7 @@ def create_app() -> FastAPI:
     app.include_router(users_router)
     app.include_router(projects_router)
     app.include_router(tasks_router)
+    app.include_router(recycle_bin_router)
     app.include_router(subtasks_router)
     app.include_router(comments_router)
     app.include_router(attachments_router)

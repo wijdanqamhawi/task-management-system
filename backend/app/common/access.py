@@ -11,13 +11,31 @@ from app.errors import forbidden, not_found
 
 
 def task_visibility_clause(user: dict, task_alias: str = "t") -> tuple[str, dict]:
-    """SQL fragment (and binds) restricting `task_alias` rows to tasks the user may see."""
+    """SQL fragment (and binds) restricting `task_alias` rows to tasks the user may see.
+
+    Soft-deleted tasks (is_deleted = 'Y') are NEVER visible here: every list, search, count,
+    detail, edit, assignment, status, Progress, comment, attachment and notification read goes
+    through this clause, so a deleted task is a 404 / absent everywhere except the Recycle Bin
+    (`recycle_bin_clause`)."""
+    live = f"{task_alias}.is_deleted = 'N'"
     if has_permission(user, PROJECT_VIEW_ALL):
-        return "1 = 1", {}
+        return f"({live})", {}
     return (
-        f"EXISTS (SELECT 1 FROM project_members vpm "
-        f"WHERE vpm.project_id = {task_alias}.project_id AND vpm.user_id = :vis_user_id)",
+        f"({live} AND EXISTS (SELECT 1 FROM project_members vpm "
+        f"WHERE vpm.project_id = {task_alias}.project_id AND vpm.user_id = :vis_user_id))",
         {"vis_user_id": user["user_id"]},
+    )
+
+
+def recycle_bin_clause(user: dict, task_alias: str = "t") -> tuple[str, dict]:
+    """The Recycle Bin: soft-deleted tasks in projects the user manages. ADMIN (manages every
+    project) sees all; a MANAGER only the projects they are a member of."""
+    if has_permission(user, PROJECT_MANAGE_ALL):
+        return f"({task_alias}.is_deleted = 'Y')", {}
+    return (
+        f"({task_alias}.is_deleted = 'Y' AND EXISTS (SELECT 1 FROM project_members bpm "
+        f"WHERE bpm.project_id = {task_alias}.project_id AND bpm.user_id = :bin_user_id))",
+        {"bin_user_id": user["user_id"]},
     )
 
 
@@ -93,6 +111,28 @@ def require_task_visible(db: Db, user: dict, task_id: int) -> dict:
     if row is None:
         raise not_found("Task not found")
     return row
+
+
+# ---------------------------------------------------------------- locking (concurrency)
+#
+# Lock order, everywhere: PROJECT row first, then TASK row, then user rows. Operations that decide
+# who may be assigned or whether a task may disappear (soft delete, restore, assign, create with
+# assignees, member removal, project delete) take the project lock, so they run one at a time per
+# project; a task-only operation (edit, status, unassign) takes just the task row. Locks are held
+# until the service commits; the request dependency rolls back on any error.
+
+def lock_project(db: Db, project_id: int) -> None:
+    if db.scalar("SELECT project_id FROM projects WHERE project_id = :p FOR UPDATE",
+                 {"p": project_id}) is None:
+        raise not_found("Project not found")
+
+
+def lock_live_task(db: Db, task_id: int) -> None:
+    """Lock a task row that is not soft-deleted. If it was deleted (or removed) while this request
+    waited, the answer is 404: the task is no longer a normal task."""
+    if db.scalar("SELECT task_id FROM tasks WHERE task_id = :t AND is_deleted = 'N' FOR UPDATE",
+                 {"t": task_id}) is None:
+        raise not_found("Task not found")
 
 
 def is_assignee(db: Db, task_id: int, user_id: int) -> bool:

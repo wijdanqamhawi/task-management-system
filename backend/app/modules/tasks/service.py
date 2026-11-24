@@ -7,16 +7,15 @@ visibility is a 404, never a 403 (FR-053).
 from dataclasses import dataclass
 from datetime import date
 
+from app.common import audit
 from app.common.access import (TASK_SELECT, is_assignee, is_project_manager, is_project_member,
-                               require_project_visible, require_task_visible,
-                               task_visibility_clause)
+                               lock_live_task, lock_project, require_project_visible,
+                               require_task_visible, task_visibility_clause)
 from app.common.paging import PageParams, page_response
-from app.common.permissions import (PROJECT_MANAGE_ALL, TASK_ASSIGN, TASK_DELETE_ANY,
-                                     TASK_DELETE_OWN, TASK_EDIT, TASK_STATUS_CHANGE,
-                                     has_permission)
+from app.common.permissions import (PROJECT_MANAGE_ALL, TASK_ASSIGN, TASK_DELETE_ANY, TASK_EDIT,
+                                     TASK_STATUS_CHANGE, has_permission)
 from app.db import Db
 from app.errors import bad_request, forbidden, not_found
-from app.modules.attachments import storage
 from app.modules.notifications import service as notifications
 
 STATUSES = ("TO_DO", "IN_PROGRESS", "REVIEW", "COMPLETED")      # Constitution VI, FR-027
@@ -171,7 +170,9 @@ def search_tasks(db: Db, user: dict, filters: TaskFilters, params: PageParams,
 def _validate_assignees(db: Db, project_id: int, user_ids: list[int]) -> list[int]:
     ids = list(dict.fromkeys(user_ids))
     for uid in ids:
-        row = db.one("SELECT is_active FROM users WHERE user_id = :u", {"u": uid})
+        # FOR UPDATE: a concurrent deactivation waits for this transaction instead of slipping in
+        # between the check and the insert.
+        row = db.one("SELECT is_active FROM users WHERE user_id = :u FOR UPDATE", {"u": uid})
         if row is None:
             raise bad_request("Assignee does not exist", assigneeIds=f"user {uid} does not exist")
         if not row["is_active"]:
@@ -211,6 +212,8 @@ def create_task(db: Db, user: dict, *, project_id: int, title: str, description:
                 assignee_ids: list[int]) -> dict:
     require_project_visible(db, user, project_id)          # 404 if not a member
     _validate_dates(start_date, due_date)
+    if assignee_ids:
+        lock_project(db, project_id)       # membership cannot change between check and insert
     if assignee_ids and not is_project_manager(db, user, project_id, TASK_ASSIGN):
         raise forbidden("Only a Manager of the project may assign tasks to others")  # FR-032
     assignee_ids = _validate_assignees(db, project_id, assignee_ids)
@@ -242,6 +245,8 @@ def update_task(db: Db, user: dict, task_id: int, fields: dict) -> dict:
     task = require_task_visible(db, user, task_id)
     if not is_project_manager(db, user, task["project_id"], TASK_EDIT):
         raise forbidden("Only a Manager of the project or an Admin may edit task details")
+    lock_live_task(db, task_id)            # 404 if it was soft-deleted while this request waited
+    task = require_task_visible(db, user, task_id)
     start = fields.get("start_date", task["start_date"])
     due = fields.get("due_date", task["due_date"])
     _validate_dates(start, due)
@@ -281,15 +286,25 @@ def _notify_involved(db: Db, task: dict, actor: dict, message: str) -> None:
 
 
 def delete_task(db: Db, user: dict, task_id: int) -> None:
-    task = require_task_visible(db, user, task_id)
-    creator = task["created_by"] == user["user_id"] and has_permission(user, TASK_DELETE_OWN)
-    if not (is_project_manager(db, user, task["project_id"], TASK_DELETE_ANY) or creator):
+    """SOFT delete: the row stays, flagged is_deleted = 'Y', with when and by whom. Assignments,
+    Progress items, comments, attachments (rows AND files) and notifications are not touched, so
+    a restore brings back exactly what was there. There is no permanent task deletion.
+
+    Only a manager of the project (TASK_DELETE_ANY + manager scope; ADMIN everywhere) may do it.
+    The creator no longer can: a MEMBER never deletes, even their own task."""
+    task = require_task_visible(db, user, task_id)          # 404 if invisible or already deleted
+    lock_project(db, task["project_id"])
+    # Re-check under the lock: a membership change committed while we waited must be honoured.
+    if not is_project_manager(db, user, task["project_id"], TASK_DELETE_ANY):
         raise forbidden()
-    files = [r["stored_name"] for r in db.query(
-        "SELECT stored_name FROM attachments WHERE task_id = :t", {"t": task_id})]
-    db.execute("DELETE FROM tasks WHERE task_id = :t", {"t": task_id})   # cascades (SC-011)
+    changed = db.execute(
+        "UPDATE tasks SET is_deleted = 'Y', deleted_at = SYSTIMESTAMP, deleted_by = :u, "
+        "updated_at = SYSTIMESTAMP WHERE task_id = :t AND is_deleted = 'N'",
+        {"u": user["user_id"], "t": task_id})
+    if changed == 0:                       # deleted by someone else a moment ago
+        raise not_found("Task not found")
+    audit.record(db, action=audit.DELETE, task=task, actor_id=user["user_id"])
     db.commit()
-    storage.remove_quietly(files)
 
 
 # ---------------------------------------------------------------- status (R-005)
@@ -308,6 +323,7 @@ def change_status(db: Db, user: dict, task_id: int, new_status: str) -> None:
                  or is_assignee(db, task_id, user["user_id"])
                  or is_project_manager(db, user, task["project_id"], TASK_EDIT))):
         raise forbidden("Only an assignee, a Manager of the project, or an Admin may change status")
+    lock_live_task(db, task_id)            # 404 if it was soft-deleted while this request waited
     db.execute(
         "UPDATE tasks SET status_id = (SELECT status_id FROM task_status WHERE status_code = :s), "
         "updated_at = SYSTIMESTAMP WHERE task_id = :t", {"s": new_status, "t": task_id})
@@ -320,6 +336,8 @@ def change_status(db: Db, user: dict, task_id: int, new_status: str) -> None:
 
 def assign(db: Db, user: dict, task_id: int, user_ids: list[int]) -> dict:
     task = require_task_visible(db, user, task_id)
+    lock_project(db, task["project_id"])   # serialises with member removal, restore and delete
+    lock_live_task(db, task_id)
     if not is_project_manager(db, user, task["project_id"], TASK_ASSIGN):
         raise forbidden()
     ids = _validate_assignees(db, task["project_id"], user_ids)
@@ -332,6 +350,7 @@ def unassign(db: Db, user: dict, task_id: int, user_id: int) -> None:
     task = require_task_visible(db, user, task_id)
     if not is_project_manager(db, user, task["project_id"], TASK_ASSIGN):
         raise forbidden()
+    lock_live_task(db, task_id)
     if not is_assignee(db, task_id, user_id):
         raise not_found("User is not assigned to this task")
     db.execute("DELETE FROM task_assignees WHERE task_id = :t AND user_id = :u",

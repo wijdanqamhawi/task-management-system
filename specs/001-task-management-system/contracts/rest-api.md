@@ -183,7 +183,7 @@ rejected with `400` when removing somebody else.
 | POST | `/api/tasks` | Create | Member of project | FR-016 |
 | GET | `/api/tasks/{id}` | Detail | Member of project | FR-017 |
 | PUT | `/api/tasks/{id}` | Update title, description, priority, dates | Member of project | FR-017 |
-| DELETE | `/api/tasks/{id}` | Delete | **Manager** of project, Admin, creator | FR-018 |
+| DELETE | `/api/tasks/{id}` | **Soft delete** (moves to the Recycle Bin; `204`). A second delete is `404` | **Manager** of project, Admin (`TASK_DELETE_ANY`). A Member never, not even the creator | FR-018 |
 | PATCH | `/api/tasks/{id}/status` | Change status | Assignee, Manager of project, Admin | FR-021, FR-027–FR-029, FR-034 |
 | GET | `/api/tasks/assigned-to-me` | My assigned tasks | Authenticated | FR-030 |
 | GET | `/api/tasks/shared-with-me` | Tasks in my projects, not assigned to me | Authenticated | FR-031 **[CLARIFIED]** |
@@ -231,6 +231,24 @@ Created with status `TO_DO` (US3 scenario 1). `400` if `dueDate < startDate`. `4
 caller may not assign to others but supplied `assigneeIds` (FR-032, FR-008c).
 
 ---
+
+### Recycle Bin — `/api/recycle-bin` (soft-deleted tasks)
+
+A soft-deleted task keeps its row, assignments, Progress items, comments, attachments (rows and
+files) and notifications. It is a `404` from every normal route (`GET/PUT/PATCH/POST/DELETE
+/api/tasks/{id}...`, subtasks, comments, attachments) and is absent from every list, search,
+My Tasks, Shared with me, dashboard figure, statistic and notification list. It raises no deadline
+or overdue reminder. There is **no** endpoint that permanently deletes a task.
+
+| Method | Path | Purpose | Who | Result |
+|--------|------|---------|-----|--------|
+| GET | `/api/recycle-bin/tasks` | Page of deleted tasks (`search` = title or project name, `projectId`, `sort` = `deletedAt`/`title`/`project`, `page`, `size`) | `RECYCLE_BIN_VIEW`: Admin (all projects), Manager (projects they belong to). Member **403** | `{taskId, projectId, projectName, title, deletedAt, deletedBy, deletedByName}` |
+| POST | `/api/recycle-bin/tasks/{id}/restore` | Restore a deleted task | `TASK_RESTORE`: Admin, Manager of the project. Member **403**; outside scope or not deleted **404**; lost a concurrent restore **409** | `200 {task, removedAssignees: [{userId, fullName, reason}]}` |
+
+Restore returns the task with everything it had. Assignees who are deactivated or are no longer
+members of the project are unassigned in the same transaction and listed in `removedAssignees`.
+Every delete and restore is written to `TASK_AUDIT_LOG`. `DELETE /api/projects/{id}` is `409`
+while the project still has tasks in the Recycle Bin.
 
 ## Subtasks, comments, attachments — nested under a task
 

@@ -28,6 +28,8 @@ import Tasks from './pages/Tasks.jsx';
 import Task from './pages/Task.jsx';
 import MyTasks from './pages/MyTasks.jsx';
 import Notifications from './pages/Notifications.jsx';
+import RecycleBin from './pages/RecycleBin.jsx';
+import { ToastProvider } from './components/Toast.jsx';
 
 const guarded = (path, render) => ({
   path,
@@ -49,6 +51,7 @@ const routes = [
   guarded(ROUTES.TASK, ({ id }) => <Task key={id} id={id} />),
   guarded(ROUTES.MY_TASKS, () => <MyTasks />),
   guarded(ROUTES.NOTIFICATIONS, () => <Notifications />),
+  guarded(ROUTES.RECYCLE_BIN, () => <RecycleBin />),
 ];
 
 /** "/" sends a signed-in user to the dashboard; the guard sends everyone else to login. */
@@ -82,9 +85,11 @@ export default function App() {
   return (
     <SessionProvider>
       <Router>
-        <UnreadProvider>
-          <Shell />
-        </UnreadProvider>
+        <ToastProvider>
+          <UnreadProvider>
+            <Shell />
+          </UnreadProvider>
+        </ToastProvider>
       </Router>
     </SessionProvider>
   );

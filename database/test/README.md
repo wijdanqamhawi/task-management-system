@@ -31,7 +31,7 @@ $sql = "C:\app\wijdan\product\26ai\dbhomeFree\bin\sqlplus.exe"
 $root = "C:\Users\wijdan\OneDrive\Desktop\Task managment\database"
 
 cd "$root\ddl"
-& $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # 15 tables, indexes, uq_notifications_scheduled
+& $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # 16 tables, indexes, uq_notifications_scheduled
 
 cd "$root\plsql"
 & $sql tms_test@//localhost:1521/FREEPDB1 "@run_all.sql"           # PKG_DASHBOARD, PKG_NOTIFICATION
@@ -50,7 +50,7 @@ Do **not** run `demo_data.sql` here: the test guard refuses a schema that holds 
 ```
 
 ```sql
-SELECT COUNT(*) FROM user_tables;                                    -- 15
+SELECT COUNT(*) FROM user_tables;                                    -- 16
 SELECT object_name, object_type, status FROM user_objects
  WHERE object_type IN ('PACKAGE','PACKAGE BODY') ORDER BY 1, 2;      -- 4 rows, all VALID
 SELECT COUNT(*) FROM roles;                                          -- 3
@@ -77,6 +77,22 @@ cd "C:\Users\wijdan\OneDrive\Desktop\Task managment\backend"
 
 Without `.env.test` every test in `tests/scheduler` is **skipped**, not run against anything
 else. The unit tests of the guard itself always run (they need no database).
+
+## Upgrading an existing TMS_TEST (migration 004, soft delete)
+
+A TMS_TEST created before the Recycle Bin needs `migrations/004_task_soft_delete.sql` applied
+**to TMS_TEST only** (it is idempotent and non-destructive; see the header of that file). The
+`connected_as` line it prints must say `TMS_TEST`.
+
+```powershell
+$sql = "C:\app\wijdan\product\26ai\dbhomeFree\bin\sqlplus.exe"
+cd "C:\Users\wijdan\OneDrive\Desktop\Task managment\database\migrations"
+& $sql tms_test@//localhost:1521/FREEPDB1 "@004_task_soft_delete.sql"
+```
+
+Afterwards `permissions` = 25, `role_permissions` = 56, and `TASK_AUDIT_LOG` exists. Run the
+Recycle Bin tests with `python -m pytest tests\rbac -p no:cacheprovider`. A fresh TMS_TEST built
+from `ddl/run_all.sql` already contains everything, so skip this step there.
 
 ## Safety guards
 

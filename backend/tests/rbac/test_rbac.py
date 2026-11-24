@@ -23,8 +23,8 @@ def test_effective_permissions_come_from_the_database_per_role(world):
             loaded = load_permissions(db, world["ids"][key])
             assert loaded == expected, key
             assert loaded <= perms.ALL_PERMISSIONS
-        assert len(load_permissions(db, world["ids"]["admin"])) == 23
-        assert len(load_permissions(db, world["ids"]["mgr"])) == 19
+        assert len(load_permissions(db, world["ids"]["admin"])) == 25
+        assert len(load_permissions(db, world["ids"]["mgr"])) == 21
         assert len(load_permissions(db, world["ids"]["mem"])) == 10
 
 
@@ -146,13 +146,14 @@ def test_status_change_is_admin_assignee_or_manager_of_the_task_project(world):
     assert c["mem"].patch(f"/api/tasks/{t1}/status", json=body).status_code == 204
 
 
-def test_task_delete_is_manager_of_the_project_or_the_creator(world):
+def test_task_delete_is_manager_of_the_project_only(world):
+    """Soft delete: a MEMBER never deletes, not even the task they created."""
     c, tasks = world["c"], world["tasks"]
     assert c["mem"].delete(f"/api/tasks/{tasks['t2']}").status_code == 403    # not the creator
     assert c["mem2"].delete(f"/api/tasks/{tasks['t1']}").status_code == 403   # creator of t2 only
+    assert c["mem2"].delete(f"/api/tasks/{tasks['t2']}").status_code == 403   # creator, a MEMBER
     assert c["mgr_out"].delete(f"/api/tasks/{tasks['t3']}").status_code == 404
     assert c["outsider"].delete(f"/api/tasks/{tasks['t3']}").status_code == 404
-    assert c["mem2"].delete(f"/api/tasks/{tasks['t2']}").status_code == 204   # creator, a MEMBER
     assert c["mgr"].delete(f"/api/tasks/{tasks['t1']}").status_code == 204    # manager
     assert c["admin"].delete(f"/api/tasks/{tasks['t3']}").status_code == 204
 
@@ -216,4 +217,4 @@ def test_changing_grants_in_the_database_changes_access_immediately(world):
     assert c["mgr"].post("/api/projects", json=body).status_code == 201
     assert c["mem"].post("/api/projects", json=body).status_code == 403
     with appdb.connection() as db:
-        assert db.scalar("SELECT COUNT(*) FROM role_permissions") == 52
+        assert db.scalar("SELECT COUNT(*) FROM role_permissions") == 56

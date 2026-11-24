@@ -18,10 +18,10 @@ import { useSession } from '../auth/SessionContext.jsx';
 import { useUnread } from '../notifications/UnreadContext.jsx';
 import { ROUTES } from '../router/routes.js';
 import { initials } from '../utils/format.js';
-import { canAdministerUsers } from '../utils/permissions.js';
+import { canAdministerUsers, canViewRecycleBin } from '../utils/permissions.js';
 import {
   BellIcon, CloseIcon, DashboardIcon, MenuIcon, MyTasksIcon, ProjectsIcon, SearchIcon,
-  TasksIcon, TeamIcon,
+  TasksIcon, TeamIcon, TrashIcon,
 } from './icons.jsx';
 
 function navItems(user) {
@@ -32,6 +32,7 @@ function navItems(user) {
     { to: ROUTES.MY_TASKS, label: 'My Tasks', Icon: MyTasksIcon },
     { to: ROUTES.NOTIFICATIONS, label: 'Notifications', Icon: BellIcon, badge: true },
   ];
+  if (canViewRecycleBin(user)) items.push({ to: ROUTES.RECYCLE_BIN, label: 'Recycle Bin', Icon: TrashIcon });
   if (canAdministerUsers(user)) items.push({ to: ROUTES.USERS, label: 'Users', Icon: TeamIcon });
   return items;
 }

@@ -31,7 +31,7 @@ export const ALLOWED_UPLOAD_TYPES = [
 export const UPLOAD_ACCEPT = '.pdf,.png,.jpg,.jpeg,.gif,.txt,.csv,.zip,.doc,.docx,.xls,.xlsx';
 
 /**
- * The 21 permission codes in Oracle (PERMISSIONS / ROLE_PERMISSIONS) as returned in
+ * The 25 permission codes in Oracle (PERMISSIONS / ROLE_PERMISSIONS) as returned in
  * `permissions` by /api/auth/login and /api/auth/me. A permission is a GLOBAL capability held
  * through the role; project, task and attachment actions additionally need the resource rule
  * (see utils/permissions.js). Do not add codes here that the database does not define.
@@ -60,4 +60,6 @@ export const PERMISSIONS = Object.freeze({
   ATTACHMENT_UPLOAD: 'ATTACHMENT_UPLOAD',
   ATTACHMENT_DELETE_ANY: 'ATTACHMENT_DELETE_ANY',
   ATTACHMENT_DELETE_OWN: 'ATTACHMENT_DELETE_OWN',
+  TASK_RESTORE: 'TASK_RESTORE',
+  RECYCLE_BIN_VIEW: 'RECYCLE_BIN_VIEW',
 });

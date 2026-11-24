@@ -37,7 +37,7 @@ PLACEHOLDER_PASSWORDS = {"", "change-me"}
 PASSWORD = "Passw0rd!"
 RBAC_TABLES = ("ROLES", "USERS", "PROJECTS", "PROJECT_MEMBERS", "TASKS", "TASK_ASSIGNEES",
                "ATTACHMENTS", "NOTIFICATIONS", "TASK_STATUS", "TASK_PRIORITY", "PERMISSIONS",
-               "ROLE_PERMISSIONS")
+               "ROLE_PERMISSIONS", "TASK_AUDIT_LOG")
 
 
 def _scalar(conn, sql):
@@ -88,9 +88,9 @@ def tms_test_credentials():
         isolation.validate_contents(set(RBAC_TABLES) - have, set(), foreign)
         counts = (_scalar(conn, "SELECT COUNT(*) FROM permissions"),
                   _scalar(conn, "SELECT COUNT(*) FROM role_permissions"))
-        if counts != (23, 52):
-            pytest.exit(f"ISOLATION GUARD: TMS_TEST RBAC seed is {counts}, expected (23, 52). "
-                        "Apply database/migrations/001 and 002 to TMS_TEST.",
+        if counts != (25, 56):
+            pytest.exit(f"ISOLATION GUARD: TMS_TEST RBAC seed is {counts}, expected (25, 56). "
+                        "Apply database/migrations/001 to 004 to TMS_TEST.",
                         returncode=2)
     except isolation.IsolationError as exc:
         pytest.exit(f"ISOLATION GUARD: {exc}", returncode=2)
@@ -144,6 +144,8 @@ def password_hash():
 
 def cleanup(db):
     db.execute("DELETE FROM notifications WHERE recipient_id IN "
+               "(SELECT user_id FROM users WHERE LOWER(email) LIKE 'zztest%')")
+    db.execute("DELETE FROM task_audit_log WHERE actor_id IN "
                "(SELECT user_id FROM users WHERE LOWER(email) LIKE 'zztest%')")
     db.execute("DELETE FROM projects WHERE name LIKE 'ZZTEST%'")        # cascades tasks etc.
     db.execute("DELETE FROM users WHERE LOWER(email) LIKE 'zztest%'")

@@ -14,6 +14,12 @@ CREATE INDEX ix_tasks_status ON tasks (status_id);
 -- FR-049 filter by priority; FR-042 tasks-by-priority breakdown.
 CREATE INDEX ix_tasks_priority ON tasks (priority_id);
 
+-- Soft delete: every normal task read filters is_deleted = 'N'; the Recycle Bin reads 'Y'.
+CREATE INDEX ix_tasks_deleted ON tasks (is_deleted, project_id);
+
+-- Foreign-key lookup on tasks.deleted_by.
+CREATE INDEX ix_tasks_deleted_by ON tasks (deleted_by);
+
 -- FR-050 filter by due date; FR-040 overdue counts; FR-056/FR-057 notification jobs.
 CREATE INDEX ix_tasks_due_date ON tasks (due_date);
 

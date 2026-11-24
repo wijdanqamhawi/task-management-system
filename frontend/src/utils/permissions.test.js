@@ -4,7 +4,7 @@
  * No browser, no network, no database.
  *
  * The role -> permission sets below are the seeded grants (database/seed/rbac_data.sql:
- * ADMIN 23, MANAGER 19, MEMBER 10). The PARITY test compares every helper with the pre-RBAC
+ * ADMIN 25, MANAGER 21, MEMBER 10). The PARITY test compares every helper with the pre-RBAC
  * role-name rules over the whole scenario matrix, so the UI offers exactly what it did before.
  */
 import test from 'node:test';
@@ -17,7 +17,7 @@ import { ROUTES, ROUTE_PERMISSIONS } from '../router/routes.js';
 import {
   canAdministerUsers, canAssign, canAssignRoles, canChangeStatus, canCreateProject,
   canDeleteAttachment, canDeleteProject, canDeleteTask, canEditTask, canManageMembers,
-  canManageProgress, canManageUserStatus, canToggleProgress, canUpdateProject, canViewAllProjects, hasAnyPermission, hasPermission,
+  canManageProgress, canManageUserStatus, canRestoreTask, canToggleProgress, canViewRecycleBin, canUpdateProject, canViewAllProjects, hasAnyPermission, hasPermission,
   isManagerOf, normalizePermissions,
 } from './permissions.js';
 
@@ -27,7 +27,7 @@ const MEMBER_SET = [P.PROJECT_VIEW, P.TASK_VIEW, P.TASK_CREATE, P.TASK_STATUS_CH
   P.ATTACHMENT_DELETE_OWN];
 const MANAGER_SET = [...MEMBER_SET, P.PROJECT_CREATE, P.PROJECT_UPDATE, P.PROJECT_DELETE,
   P.PROJECT_MEMBER_MANAGE, P.TASK_EDIT, P.TASK_ASSIGN, P.TASK_DELETE_ANY, P.ATTACHMENT_DELETE_ANY,
-  P.PROGRESS_MANAGE];
+  P.PROGRESS_MANAGE, P.TASK_RESTORE, P.RECYCLE_BIN_VIEW];
 const GRANTS = { ADMIN: ALL, MANAGER: MANAGER_SET, MEMBER: MEMBER_SET };
 
 const PROJECT = 10;
@@ -35,10 +35,10 @@ const user = (id, role, permissions = GRANTS[role]) => ({ userId: id, role, perm
 
 // ------------------------------------------------------------------ the seeded sets
 
-test('the role sets are the seeded 23 / 19 / 10 grants and use only existing codes', () => {
-  assert.equal(ALL.length, 23);
-  assert.equal(new Set(ALL).size, 23);
-  assert.equal(MANAGER_SET.length, 19);
+test('the role sets are the seeded 25 / 21 / 10 grants and use only existing codes', () => {
+  assert.equal(ALL.length, 25);
+  assert.equal(new Set(ALL).size, 25);
+  assert.equal(MANAGER_SET.length, 21);
   assert.equal(MEMBER_SET.length, 10);
   for (const set of Object.values(GRANTS)) for (const code of set) assert.ok(ALL.includes(code));
 });
@@ -122,7 +122,7 @@ test('route authorization, navigation and page gates agree for every permission 
     assert.equal(canAdministerUsers(u), route);                         // nav link === route guard
     assert.equal(route, canAssignRoles(u) || canManageUserStatus(u));   // page reachable iff some action
   }
-  assert.deepEqual(Object.keys(ROUTE_PERMISSIONS), [ROUTES.USERS]);     // only /users is restricted
+  assert.deepEqual(Object.keys(ROUTE_PERMISSIONS), [ROUTES.USERS, ROUTES.RECYCLE_BIN]);   // the restricted screens
 });
 
 test('manager scope: a MANAGER manages only projects they belong to; ADMIN manages all', () => {
@@ -167,16 +167,27 @@ test('status: admin, an assignee of THAT task, or a manager of its project; not 
   assert.equal(canChangeStatus(undefined, task, inProject), false);
 });
 
-test('delete task: manager of the project, or the creator; assignment and membership do not matter', () => {
+test('delete task (soft delete): a manager of the project only; a MEMBER never, not even the creator', () => {
   const inProject = new Set([PROJECT]);
   const task = { projectId: PROJECT, assignees: [{ userId: 4 }], createdBy: 5 };
   assert.equal(canDeleteTask(user(2, 'MANAGER'), task, inProject), true);
   assert.equal(canDeleteTask(user(1, 'ADMIN'), task, new Set()), true);
-  assert.equal(canDeleteTask(user(5, 'MEMBER'), task, inProject), true);          // creator
-  assert.equal(canDeleteTask(user(4, 'MEMBER'), task, inProject), false);         // assignee, not creator
-  assert.equal(canDeleteTask(user(3, 'MANAGER'), task, new Set()), false);
-  assert.equal(canDeleteTask(user(5, 'MEMBER', []), task, inProject), false);     // no TASK_DELETE_OWN
+  assert.equal(canDeleteTask(user(5, 'MEMBER'), task, inProject), false);         // creator: no longer
+  assert.equal(canDeleteTask(user(4, 'MEMBER'), task, inProject), false);         // assignee
+  assert.equal(canDeleteTask(user(3, 'MANAGER'), task, new Set()), false);        // manager elsewhere
+  assert.equal(canDeleteTask(user(5, 'MEMBER', [...MEMBER_SET, P.TASK_DELETE_OWN]), task, inProject), false);
+  assert.equal(canDeleteTask(user(2, 'MANAGER', MANAGER_SET.filter((c) => c !== P.TASK_DELETE_ANY)), task, inProject), false);
   assert.equal(canDeleteTask(user(7, 'MEMBER'), { ...task, createdBy: undefined }, inProject), false);
+});
+
+test('Recycle Bin: ADMIN and MANAGER may view and restore; MEMBER never; the nav link follows the route guard', () => {
+  assert.deepEqual(['ADMIN', 'MANAGER', 'MEMBER'].map((r) => canViewRecycleBin(user(1, r))), [true, true, false]);
+  assert.deepEqual(['ADMIN', 'MANAGER', 'MEMBER'].map((r) => canRestoreTask(user(1, r))), [true, true, false]);
+  for (const u of [user(1, 'ADMIN'), user(2, 'MANAGER'), user(4, 'MEMBER'), undefined, { permissions: [] }]) {
+    assert.equal(canViewRecycleBin(u), hasAnyPermission(u, ROUTE_PERMISSIONS[ROUTES.RECYCLE_BIN]));
+  }
+  assert.equal(canViewRecycleBin({ userId: 1, role: 'ADMIN', permissions: [] }), false);   // role name alone: no
+  assert.equal(canRestoreTask({ userId: 1, role: 'ADMIN' }), false);
 });
 
 test('delete attachment: the uploader, or a manager of the project', () => {
@@ -223,7 +234,8 @@ const legacy = {
     if (task.assignees.some((a) => a.userId === u.userId)) return true;
     return legacy.isManagerOf(u, task.projectId, ids);
   },
-  canDeleteTask: (u, task, ids) => legacy.isManagerOf(u, task.projectId, ids) || task.createdBy === u.userId,
+  // Changed deliberately by soft delete: the creator rule is gone, so this equals the manager rule.
+  canDeleteTask: (u, task, ids) => legacy.isManagerOf(u, task.projectId, ids),
   canDeleteAttachment: (u, file, projectId, ids) => file.uploadedBy === u.userId || legacy.isManagerOf(u, projectId, ids),
 };
 

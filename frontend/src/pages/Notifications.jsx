@@ -2,7 +2,7 @@
  * Notifications (FR-054..FR-061). Only the signed-in user's own notifications are returned by
  * the API. Opening one marks it read and goes to its task; "Mark all read" clears the badge.
  */
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
 import { Button } from '../components/index.jsx';
 import { Async, Notice, PageHeader, Pagination } from '../components/common.jsx';
@@ -21,6 +21,8 @@ export default function Notifications() {
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [page, setPage] = useState(0);
   const [error, setError] = useState('');
+  const [readIds, setReadIds] = useState(() => new Set());   // marked read this session, after the backend confirmed
+  const pending = useRef(new Set());                          // ids with a mark-read request in flight
   const state = useApi(
     (signal) => listNotifications({ unreadOnly: unreadOnly || undefined, page, size: 20 }, { signal }),
     [unreadOnly, page],
@@ -28,19 +30,29 @@ export default function Notifications() {
 
   const changed = () => window.dispatchEvent(new Event(NOTIFICATIONS_CHANGED));
 
+  const isRead = (n) => n.isRead || readIds.has(n.notificationId);
+
   async function open(n) {
+    if (pending.current.has(n.notificationId)) return;   // ignore repeated clicks while the request is in flight
     setError('');
     try {
-      if (!n.isRead) { await markRead(n.notificationId); changed(); }
-      if (n.taskId) navigate(`/tasks/${n.taskId}`); else state.reload();
+      if (!isRead(n)) {
+        pending.current.add(n.notificationId);
+        await markRead(n.notificationId);
+        setReadIds((prev) => new Set(prev).add(n.notificationId));
+        changed();
+      }
+      if (n.taskId) navigate(`/tasks/${n.taskId}`);
     } catch (e) {
       setError(errorMessage(e));
+    } finally {
+      pending.current.delete(n.notificationId);
     }
   }
 
   async function readAll() {
     setError('');
-    try { await markAllRead(); changed(); state.reload(); } catch (e) { setError(errorMessage(e)); }
+    try { await markAllRead(); setReadIds(new Set()); changed(); state.reload(); } catch (e) { setError(errorMessage(e)); }
   }
 
   return (
@@ -57,17 +69,22 @@ export default function Notifications() {
       <Notice onClose={() => setError('')}>{error}</Notice>
       <section className="panel">
         <Async state={state}>
-          {(data) => (
+          {(data) => {
+            // In unread-only mode an opened notification no longer matches the filter: drop it now.
+            const items = unreadOnly ? data.content.filter((n) => !isRead(n)) : data.content;
+            const removed = data.content.length - items.length;
+            return (
             <>
-              {data.content.length === 0 && (
+              {items.length === 0 && (
                 <p className="empty-state">{unreadOnly ? 'No unread notifications.' : 'You have no notifications yet.'}</p>
               )}
               <ul className="item-list">
-                {data.content.map((n) => (
-                  <li key={n.notificationId} className={`notif${n.isRead ? '' : ' notif--unread'}`}
+                {items.map((n) => (
+                  <li key={n.notificationId} className={`notif${isRead(n) ? '' : ' notif--unread'}`}
                       onClick={() => open(n)}>
                     <div className="item-list__main">
-                      <div className="notif__type">{TYPE_LABELS[n.triggerType] ?? n.triggerType}{!n.isRead && ' · new'}</div>
+                      <div className="notif__type">{!isRead(n) && <span className="notif__dot" aria-hidden="true" />}
+                        {TYPE_LABELS[n.triggerType] ?? n.triggerType}{!isRead(n) && <span className="sr-only"> (unread)</span>}</div>
                       <button type="button" className="link-btn" style={{ textAlign: 'left', textDecoration: 'none', color: 'inherit', fontWeight: 'inherit' }}
                               onClick={(e) => { e.stopPropagation(); open(n); }}>{n.message}</button>
                     </div>
@@ -75,9 +92,10 @@ export default function Notifications() {
                   </li>
                 ))}
               </ul>
-              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements} onPage={setPage} />
+              <Pagination page={data.page} totalPages={data.totalPages} totalElements={data.totalElements - removed} onPage={setPage} />
             </>
-          )}
+            );
+          }}
         </Async>
       </section>
     </AppLayout>

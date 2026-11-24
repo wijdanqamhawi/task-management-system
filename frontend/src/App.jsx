@@ -77,20 +77,27 @@ function NotFound() {
   );
 }
 
-function Shell() {
+export function Shell() {
   return <Routes routes={routes} fallback={<NotFound />} />;
 }
 
-export default function App() {
+/** Session, router and unread count: shared by the Original and Material UI so switching design keeps one session. */
+export function Providers({ children }) {
   return (
     <SessionProvider>
       <Router>
         <ToastProvider>
-          <UnreadProvider>
-            <Shell />
-          </UnreadProvider>
+          <UnreadProvider>{children}</UnreadProvider>
         </ToastProvider>
       </Router>
     </SessionProvider>
+  );
+}
+
+export default function App() {
+  return (
+    <Providers>
+      <Shell />
+    </Providers>
   );
 }

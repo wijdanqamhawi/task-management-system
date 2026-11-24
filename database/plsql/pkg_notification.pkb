@@ -3,7 +3,7 @@
 -- Only the two date-driven triggers live here. Both are idempotent: the NOT EXISTS guard and
 -- the unique index uq_notifications_scheduled mean a repeated run creates nothing new, so a
 -- task that stays overdue for days notifies each assignee exactly once.
--- Skips COMPLETED tasks, soft-deleted tasks (is_deleted = 'Y', migration 004) and inactive
+-- Skips COMPLETED tasks, soft-deleted tasks (is_deleted = 'Y', migration 005) and inactive
 -- recipients (FR-061). Defines package code only.
 
 CREATE OR REPLACE PACKAGE BODY pkg_notification AS

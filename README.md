@@ -1,5 +1,21 @@
 # Task Management System
 
+## Task Management System – ERD
+
+![Task Management System ERD](database/erd/Task%20Management%20System%20ERD.drawio.png)
+
+- [Open editable Draw.io file](database/erd/Task%20Management%20System%20ERD.drawio)
+- [View ERD on Google Drive](https://drive.google.com/file/d/1RCqTHskPuY5WA0x8r0Y-YlJrU8654q02/view?usp=sharing)
+
+## Task Management System Flowchart
+
+![Task Management System Flowchart](docs/diagrams/Task_Management_System_Flowchart.png)
+
+**Editable Draw.io Flowchart:**  
+[Open the editable flowchart on Google Drive](https://drive.google.com/file/d/1H3-w7Jlmt2wwkYheubgfNgZXSEPpFuDU/view?usp=sharing)
+
+---
+
 A full-stack Task Management System for teams and departments, built as a training project
 for the Computer Center.
 

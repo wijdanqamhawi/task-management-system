@@ -1,4 +1,4 @@
-"""Append-only audit log for soft delete and restore (table TASK_AUDIT_LOG, migration 004).
+"""Append-only audit log for soft delete and restore (table TASK_AUDIT_LOG, migration 005).
 
 Written in the SAME transaction as the change it records, so a rolled-back delete or restore
 leaves no entry and a committed one always has one. Nothing ever updates or deletes a row here.

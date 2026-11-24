@@ -3,7 +3,7 @@
 -- Implements the specification in pkg_dashboard.pks. Visibility (R-004) is applied INSIDE every
 -- query: a user sees a project/task if they are a member of the project or hold ADMIN.
 -- "Overdue" = due_date earlier than today and status not COMPLETED. "Pending" = not COMPLETED.
--- Soft-deleted tasks (tasks.is_deleted = 'Y', migration 004) are excluded from every figure. In the
+-- Soft-deleted tasks (tasks.is_deleted = 'Y', migration 005) are excluded from every figure. In the
 -- two project-progress queries the filter sits in the LEFT JOIN's ON clause so a project whose
 -- tasks are all deleted still appears, with zero tasks.
 -- This file only defines package code; it does not touch any table or the schema.

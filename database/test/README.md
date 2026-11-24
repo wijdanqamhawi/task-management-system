@@ -78,16 +78,16 @@ cd "C:\Users\wijdan\OneDrive\Desktop\Task managment\backend"
 Without `.env.test` every test in `tests/scheduler` is **skipped**, not run against anything
 else. The unit tests of the guard itself always run (they need no database).
 
-## Upgrading an existing TMS_TEST (migration 004, soft delete)
+## Upgrading an existing TMS_TEST (migration 005, soft delete)
 
-A TMS_TEST created before the Recycle Bin needs `migrations/004_task_soft_delete.sql` applied
+A TMS_TEST created before the Recycle Bin needs `migrations/005_task_soft_delete.sql` applied
 **to TMS_TEST only** (it is idempotent and non-destructive; see the header of that file). The
 `connected_as` line it prints must say `TMS_TEST`.
 
 ```powershell
 $sql = "C:\app\wijdan\product\26ai\dbhomeFree\bin\sqlplus.exe"
 cd "C:\Users\wijdan\OneDrive\Desktop\Task managment\database\migrations"
-& $sql tms_test@//localhost:1521/FREEPDB1 "@004_task_soft_delete.sql"
+& $sql tms_test@//localhost:1521/FREEPDB1 "@005_task_soft_delete.sql"
 ```
 
 Afterwards `permissions` = 25, `role_permissions` = 56, and `TASK_AUDIT_LOG` exists. Run the

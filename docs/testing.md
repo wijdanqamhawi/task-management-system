@@ -153,11 +153,11 @@ semantics ("Option K") documented in the same README. The older whole-schema tes
 as `TMS_TEST`.
 
 
-## Soft delete and Recycle Bin (migration 004)
+## Soft delete and Recycle Bin (migration 005)
 
 Database-dependent tests for this feature run **only against TMS_TEST** (the `tests/rbac` and
 `tests/scheduler` harnesses refuse any other schema and check `SESSION_USER` before every test).
-Apply migration 004 to TMS_TEST first: see `database/test/README.md`, "Upgrading an existing
+Apply migration 005 to TMS_TEST first: see `database/test/README.md`, "Upgrading an existing
 TMS_TEST".
 
 | Suite | Covers |

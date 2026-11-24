@@ -7,6 +7,8 @@ import { useMemo, useState } from 'react';
 import '../styles/dashboard.css';
 import AppLayout from '../components/AppLayout.jsx';
 import TaskTable from '../components/TaskTable.jsx';
+import PerformancePanel from '../components/PerformancePanel.jsx';
+import { canViewOthersPerformance } from '../utils/permissions.js';
 import { Badge, Button, Select } from '../components/index.jsx';
 import { Async, PageHeader } from '../components/common.jsx';
 import { AlertIcon, CheckCircleIcon, ClockIcon, ProjectsIcon, SearchIcon, TasksIcon } from '../components/icons.jsx';
@@ -49,6 +51,13 @@ function Breakdown({ rows, total }) {
       ))}
     </ul>
   );
+}
+
+/** Selector entries: the viewer first, then everyone assigned a task they can see (the same
+ *  scoped list as "Tasks per Person", so no extra user lookup and nobody out of scope). */
+function performancePeople(tasksByUser, me) {
+  const others = tasksByUser.filter((u) => u.userId !== me.userId);
+  return [{ userId: me.userId, fullName: me.fullName ?? me.username }, ...others];
 }
 
 export default function Dashboard() {
@@ -143,6 +152,8 @@ export default function Dashboard() {
                     ))}
                   </ul>
                 </div>
+
+                <PerformancePanel me={user} people={canViewOthersPerformance(user) ? performancePeople(d.tasksByUser, user) : null} />
 
                 <div className="dash__panel">
                   <h2 className="dash__panel-title">Tasks per Person</h2>

@@ -362,7 +362,7 @@ def test_application_pool_is_never_initialised_by_this_suite():
     assert appdb._pool is None
 
 
-# ----------------------------------------------------------------- soft-deleted tasks (migration 004)
+# ----------------------------------------------------------------- soft-deleted tasks (migration 005)
 
 def test_a_soft_deleted_task_raises_no_reminder_until_it_is_restored(team):
     w, p, a1, mgr = team["w"], team["project"], team["a1"], team["manager"]

@@ -1,4 +1,4 @@
--- Migration 004 - Soft delete and Recycle Bin for tasks.
+-- Migration 005 - Soft delete and Recycle Bin for tasks.
 --
 -- For a database that ALREADY holds real data. Additive and idempotent:
 --   * TASKS gets IS_DELETED (CHAR(1) DEFAULT 'N' NOT NULL), DELETED_AT and DELETED_BY. Every
@@ -27,13 +27,13 @@
 -- Run as the schema owner. Each command is run from the directory that holds its script, so no
 -- path is ever resolved relative to anything else:
 --   cd <repo>/database/migrations
---   sqlplus <schema_owner>@//<host>:1521/<service> @004_task_soft_delete.sql
+--   sqlplus <schema_owner>@//<host>:1521/<service> @005_task_soft_delete.sql
 --   cd <repo>/database/plsql
 --   sqlplus <schema_owner>@//<host>:1521/<service> @run_all.sql
 --   cd <repo>/database/migrations
---   sqlplus <schema_owner>@//<host>:1521/<service> @004_task_soft_delete.sql      (again)
+--   sqlplus <schema_owner>@//<host>:1521/<service> @005_task_soft_delete.sql      (again)
 -- The first run stops with ORA-20004 at the verification if the packages are still the old
--- version; that is expected. The last run is idempotent and must end with "Migration 004
+-- version; that is expected. The last run is idempotent and must end with "Migration 005
 -- verified". Any other ORA-20004 message names exactly what is wrong.
 -- You are prompted for the password; do not put it on the command line or in this file.
 -- Check the "connected_as" line below before you let it continue: it must be the schema you mean
@@ -315,14 +315,14 @@ BEGIN
   same('task_assignees', 'task_assignees', &pre_asg);
 
   IF v_problems IS NOT NULL THEN
-    RAISE_APPLICATION_ERROR(-20004, 'Migration 004 verification FAILED:' || v_problems);
+    RAISE_APPLICATION_ERROR(-20004, 'Migration 005 verification FAILED:' || v_problems);
   END IF;
-  DBMS_OUTPUT.PUT_LINE('Migration 004 verified: columns, constraints, indexes, audit table, '
+  DBMS_OUTPUT.PUT_LINE('Migration 005 verified: columns, constraints, indexes, audit table, '
                     || '25 permissions / 56 grants, both packages VALID and current, row counts unchanged.');
 END;
 /
 SET DEFINE OFF
 
 PROMPT ================================================
-PROMPT  Migration 004 verified (a failure above would have stopped the script). Safe to run again.
+PROMPT  Migration 005 verified (a failure above would have stopped the script). Safe to run again.
 PROMPT ================================================

@@ -20,19 +20,19 @@ import { ROUTES } from '../router/routes.js';
  * was wrong, nor whether the account exists or has been deactivated. Distinguishing those
  * cases here would leak exactly what the requirement forbids.
  */
-const SIGN_IN_FAILED = 'Email or password is incorrect.';
+export const SIGN_IN_FAILED = 'Email or password is incorrect.';
 
 /** Same shape check as Register and Forgot password; the server remains the authority. */
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function emailError(value) {
+export function emailError(value) {
   const trimmed = value.trim();
   if (!trimmed) return 'Enter your email address.';
   if (!EMAIL_PATTERN.test(trimmed)) return 'Enter a valid email address.';
   return undefined;
 }
 
-function passwordError(value) {
+export function passwordError(value) {
   return value ? undefined : 'Enter your password.';
 }
 
@@ -221,6 +221,11 @@ export default function Login() {
             Forgot password?
           </Link>
         </div>
+        <p className="login__hint" aria-live="polite">
+          {remember
+            ? 'You’ll stay signed in on this device after closing the browser.'
+            : 'You’ll be signed out when the browser session ends.'}
+        </p>
 
         <Button
           type="submit"

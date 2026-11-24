@@ -9,11 +9,14 @@ CREATE TABLE tasks (
   priority_id NUMBER        NOT NULL,     -- FR-020
   start_date  DATE,
   due_date    DATE,
+  -- Set when the task moves to COMPLETED, cleared when it leaves it (tasks.service.change_status).
+  -- NULL for tasks completed before this column existed: they are never backfilled.
+  completed_at DATE,
   created_by  NUMBER        NOT NULL,
   created_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
   updated_at  TIMESTAMP DEFAULT SYSTIMESTAMP NOT NULL,
-  -- Soft delete (migration 004): a deleted task stays in this table with all its children and is
-  -- shown only in the Recycle Bin. Keep identical to migrations/004_task_soft_delete.sql.
+  -- Soft delete (migration 005): a deleted task stays in this table with all its children and is
+  -- shown only in the Recycle Bin. Keep identical to migrations/005_task_soft_delete.sql.
   is_deleted  CHAR(1) DEFAULT 'N' NOT NULL,
   deleted_at  TIMESTAMP,
   deleted_by  NUMBER,

@@ -90,7 +90,7 @@ def tms_test_credentials():
                   _scalar(conn, "SELECT COUNT(*) FROM role_permissions"))
         if counts != (25, 56):
             pytest.exit(f"ISOLATION GUARD: TMS_TEST RBAC seed is {counts}, expected (25, 56). "
-                        "Apply database/migrations/001 to 004 to TMS_TEST.",
+                        "Apply database/migrations/001 to 005 to TMS_TEST.",
                         returncode=2)
     except isolation.IsolationError as exc:
         pytest.exit(f"ISOLATION GUARD: {exc}", returncode=2)

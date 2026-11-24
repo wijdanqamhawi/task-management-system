@@ -1,5 +1,5 @@
--- Soft delete / Recycle Bin audit log (migration 004). Append-only: the application only INSERTs.
--- Keep identical to the CREATE statements in migrations/004_task_soft_delete.sql.
+-- Soft delete / Recycle Bin audit log (migration 005). Append-only: the application only INSERTs.
+-- Keep identical to the CREATE statements in migrations/005_task_soft_delete.sql.
 --
 -- task_id and project_id deliberately have NO foreign key: the history must survive even if a
 -- project (and with it its tasks) is later removed. A project that still holds soft-deleted

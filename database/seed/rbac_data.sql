@@ -54,7 +54,7 @@ WHEN NOT MATCHED THEN
 -- ------------------------------------------------------------------ role_permissions
 -- ADMIN: everything (25). Listed explicitly so a permission added later is not granted silently.
 -- MANAGER: project and task management, but no user administration and no *_ALL bypass (21).
--- TASK_RESTORE and RECYCLE_BIN_VIEW (soft delete, migration 004) go to ADMIN and MANAGER only.
+-- TASK_RESTORE and RECYCLE_BIN_VIEW (soft delete, migration 005) go to ADMIN and MANAGER only.
 -- MEMBER keeps TASK_DELETE_OWN in the catalogue but the application no longer honours it for
 -- tasks: soft-deleting a task needs TASK_DELETE_ANY plus manager scope of the project.
 -- MEMBER: work on tasks of projects they belong to (10).

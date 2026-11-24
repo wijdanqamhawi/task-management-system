@@ -7,6 +7,8 @@ erDiagram
     USERS        ||--o{ PROJECTS         : "created"
     PROJECTS     ||--o{ TASKS            : contains
     USERS        ||--o{ TASKS            : created
+    USERS        ||--o{ TASKS            : "deleted (soft)"
+    USERS        ||--o{ TASK_AUDIT_LOG   : performed
     TASKS        ||--o{ TASK_ASSIGNEES   : "assigned via"
     USERS        ||--o{ TASK_ASSIGNEES   : "assignee via"
     TASK_STATUS  ||--o{ TASKS            : classifies
@@ -84,6 +86,19 @@ erDiagram
         NUMBER    created_by  FK
         TIMESTAMP created_at
         TIMESTAMP updated_at
+        CHAR      is_deleted  "Y | N (soft delete)"
+        TIMESTAMP deleted_at
+        NUMBER    deleted_by  FK
+    }
+    TASK_AUDIT_LOG {
+        NUMBER    audit_id   PK
+        NUMBER    task_id    "no FK: history outlives the task"
+        NUMBER    project_id "no FK"
+        VARCHAR2  task_title "snapshot"
+        VARCHAR2  action     "DELETE | RESTORE"
+        NUMBER    actor_id   FK
+        TIMESTAMP acted_at
+        VARCHAR2  details
     }
     TASK_ASSIGNEES {
         NUMBER    task_id  PK_FK

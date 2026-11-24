@@ -213,9 +213,12 @@ export default function Project({ id }) {
             )}
             {confirmDelete && (
               <ConfirmDialog title="Delete project" danger confirmLabel="Delete project" busy={busy}
-                message={`Delete "${p.name}" and all of its tasks, progress items, comments and attachments? This cannot be undone.`}
+                message={`Delete "${p.name}" and all of its tasks, progress items, comments and attachments? This cannot be undone. A project with tasks in the Recycle Bin cannot be deleted: restore them first.`}
                 onCancel={() => setConfirmDelete(false)}
-                onConfirm={() => guarded(async () => { await deleteProject(projectId); navigate('/projects'); })} />
+                onConfirm={async () => {
+                  const ok = await guarded(async () => { await deleteProject(projectId); navigate('/projects'); });
+                  if (!ok) setConfirmDelete(false);        // the reason is shown in the banner above
+                }} />
             )}
             {removing && removing.userId === user.userId && (
               <TransferDialog busy={busy}

@@ -13,6 +13,7 @@ import { useApi } from '../../hooks/useApi.js';
 import { useVisibleProjects } from '../../hooks/useVisibleProjects.js';
 import { useSession } from '../../auth/SessionContext.jsx';
 import { useRouter } from '../../router/Router.jsx';
+import { useToast } from '../../components/Toast.jsx';
 import { assignUsers, deleteTask, getTask, unassignUser, updateTask } from '../../api/tasks.js';
 import { listMembers } from '../../api/projects.js';
 import {
@@ -240,6 +241,7 @@ function Assignees({ task, manager, onChanged, setError }) {
 export default function TaskDetails({ id: taskId }) {
   const { user } = useSession();
   const { navigate } = useRouter();
+  const toast = useToast();
   const visible = useVisibleProjects();
   const state = useApi((signal) => getTask(taskId, { signal }), [taskId]);
   const [editing, setEditing] = useState(false);
@@ -250,7 +252,7 @@ export default function TaskDetails({ id: taskId }) {
 
   async function remove(task) {
     setBusy(true);
-    try { await deleteTask(taskId); navigate(`/projects/${task.projectId}`); } catch (e) { setError(errorMessage(e)); setConfirmDelete(false); setBusy(false); }
+    try { await deleteTask(taskId); toast.info(`"${task.title}" was moved to the Recycle Bin.`); navigate(`/projects/${task.projectId}`); } catch (e) { setError(errorMessage(e)); setConfirmDelete(false); setBusy(false); }
   }
 
   return (
@@ -336,8 +338,8 @@ export default function TaskDetails({ id: taskId }) {
             )}
             {confirmDelete && (
               <ConfirmDialog
-                title="Delete task" confirmLabel="Delete task" busy={busy} onCancel={() => setConfirmDelete(false)}
-                message={`Delete "${t.title}" with its subtasks, comments and attachments? This cannot be undone.`}
+                title="Delete task" confirmLabel="Move to Recycle Bin" busy={busy} onCancel={() => setConfirmDelete(false)}
+                message={`Move "${t.title}" to the Recycle Bin? It keeps its subtasks, comments, attachments and assignments, disappears from the task lists, and a Manager or Admin can restore it from the Recycle Bin.`}
                 onConfirm={() => remove(t)}
               />
             )}

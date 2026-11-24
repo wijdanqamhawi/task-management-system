@@ -93,6 +93,18 @@ class World:
                         {"d": offset, "t": task})
         self.conn.commit()
 
+    def soft_delete(self, task: int, by: int):
+        self.db.execute(
+            "UPDATE tasks SET is_deleted = 'Y', deleted_at = SYSTIMESTAMP, deleted_by = :u "
+            "WHERE task_id = :t", {"u": by, "t": task})
+        self.conn.commit()
+
+    def restore(self, task: int):
+        self.db.execute(
+            "UPDATE tasks SET is_deleted = 'N', deleted_at = NULL, deleted_by = NULL "
+            "WHERE task_id = :t", {"t": task})
+        self.conn.commit()
+
     def set_active(self, user: int, active: bool):
         self.db.execute("UPDATE users SET is_active = :a WHERE user_id = :u",
                         {"a": "Y" if active else "N", "u": user})
@@ -348,3 +360,19 @@ def test_contents_guard_requires_install_and_refuses_foreign_data():
 def test_application_pool_is_never_initialised_by_this_suite():
     from app import db as appdb
     assert appdb._pool is None
+
+
+# ----------------------------------------------------------------- soft-deleted tasks (migration 005)
+
+def test_a_soft_deleted_task_raises_no_reminder_until_it_is_restored(team):
+    w, p, a1, mgr = team["w"], team["project"], team["a1"], team["manager"]
+    soon = w.task(p, mgr, due=1, assignees=[a1])        # would get DEADLINE
+    late = w.task(p, mgr, due=-2, assignees=[a1])       # would get OVERDUE
+    w.soft_delete(soon, mgr)
+    w.soft_delete(late, mgr)
+    assert w.run_job() == {"deadline": 0, "overdue": 0}
+    assert w.count(task=soon) == 0 and w.count(task=late) == 0
+    w.restore(soon)                                     # back in the normal flow
+    w.restore(late)
+    assert w.run_job() == {"deadline": 1, "overdue": 1}
+    assert w.count(task=soon, kind="DEADLINE") == 1 and w.count(task=late, kind="OVERDUE") == 1

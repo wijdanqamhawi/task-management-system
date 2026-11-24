@@ -19,6 +19,7 @@ import TaskDetails from './pages/TaskDetails.jsx';
 import Notifications from './pages/Notifications.jsx';
 import Users from './pages/Users.jsx';
 import Profile from './pages/Profile.jsx';
+import RecycleBin from './pages/RecycleBin.jsx';
 import { Routes, useRouter } from '../router/Router.jsx';
 import { useSession } from '../auth/SessionContext.jsx';
 import { ROUTES, ROUTE_PERMISSIONS } from '../router/routes.js';
@@ -77,6 +78,7 @@ const routes = [
   guarded(ROUTES.TASK, ({ id }) => <TaskDetails key={id} id={Number(id)} />),
   guarded(ROUTES.MY_TASKS, () => <MyTasks />),
   guarded(ROUTES.NOTIFICATIONS, () => <Notifications />),
+  guarded(ROUTES.RECYCLE_BIN, () => <RecycleBin />),
 ];
 
 const notFound = (

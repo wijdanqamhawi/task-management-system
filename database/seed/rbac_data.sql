@@ -43,15 +43,20 @@ USING (
   SELECT 'PROGRESS_TOGGLE',       'Mark a Progress item completed or incomplete; managers and assignees'  FROM dual UNION ALL
   SELECT 'ATTACHMENT_UPLOAD',     'Upload attachments to a visible task'                                  FROM dual UNION ALL
   SELECT 'ATTACHMENT_DELETE_ANY', 'Delete any attachment on a project the user manages'                   FROM dual UNION ALL
-  SELECT 'ATTACHMENT_DELETE_OWN', 'Delete an attachment the user uploaded'                                FROM dual
+  SELECT 'ATTACHMENT_DELETE_OWN', 'Delete an attachment the user uploaded'                                FROM dual UNION ALL
+  SELECT 'TASK_RESTORE',          'Restore a soft-deleted task; managers of its project and ADMIN'        FROM dual UNION ALL
+  SELECT 'RECYCLE_BIN_VIEW',      'View the Recycle Bin (soft-deleted tasks); managers and ADMIN'         FROM dual
 ) src
 ON (p.permission_code = src.permission_code)
 WHEN NOT MATCHED THEN
   INSERT (permission_code, description) VALUES (src.permission_code, src.description);
 
 -- ------------------------------------------------------------------ role_permissions
--- ADMIN: everything (23). Listed explicitly so a permission added later is not granted silently.
--- MANAGER: project and task management, but no user administration and no *_ALL bypass (19).
+-- ADMIN: everything (25). Listed explicitly so a permission added later is not granted silently.
+-- MANAGER: project and task management, but no user administration and no *_ALL bypass (21).
+-- TASK_RESTORE and RECYCLE_BIN_VIEW (soft delete, migration 005) go to ADMIN and MANAGER only.
+-- MEMBER keeps TASK_DELETE_OWN in the catalogue but the application no longer honours it for
+-- tasks: soft-deleting a task needs TASK_DELETE_ANY plus manager scope of the project.
 -- MEMBER: work on tasks of projects they belong to (10).
 MERGE INTO role_permissions rp
 USING (
@@ -80,6 +85,10 @@ USING (
       SELECT 'ADMIN', 'ATTACHMENT_UPLOAD'     FROM dual UNION ALL
       SELECT 'ADMIN', 'ATTACHMENT_DELETE_ANY' FROM dual UNION ALL
       SELECT 'ADMIN', 'ATTACHMENT_DELETE_OWN' FROM dual UNION ALL
+      SELECT 'ADMIN', 'TASK_RESTORE'          FROM dual UNION ALL
+      SELECT 'ADMIN', 'RECYCLE_BIN_VIEW'      FROM dual UNION ALL
+      SELECT 'MANAGER', 'TASK_RESTORE'          FROM dual UNION ALL
+      SELECT 'MANAGER', 'RECYCLE_BIN_VIEW'      FROM dual UNION ALL
       SELECT 'MANAGER', 'PROJECT_VIEW'          FROM dual UNION ALL
       SELECT 'MANAGER', 'PROJECT_CREATE'        FROM dual UNION ALL
       SELECT 'MANAGER', 'PROJECT_UPDATE'        FROM dual UNION ALL
@@ -119,7 +128,7 @@ WHEN NOT MATCHED THEN
 
 COMMIT;
 
-PROMPT RBAC data loaded. Expect 23 permissions and 52 role_permissions (ADMIN 23, MANAGER 19, MEMBER 10):
+PROMPT RBAC data loaded. Expect 25 permissions and 56 role_permissions (ADMIN 25, MANAGER 21, MEMBER 10):
 SELECT r.role_name, COUNT(rp.permission_id) AS permission_count
   FROM roles r LEFT JOIN role_permissions rp ON rp.role_id = r.role_id
  GROUP BY r.role_name ORDER BY r.role_name;

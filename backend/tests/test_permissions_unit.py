@@ -25,7 +25,7 @@ MEMBER_PERMS = frozenset({
 MANAGER_PERMS = MEMBER_PERMS | {
     perms.PROJECT_CREATE, perms.PROJECT_UPDATE, perms.PROJECT_DELETE,
     perms.PROJECT_MEMBER_MANAGE, perms.TASK_EDIT, perms.TASK_ASSIGN, perms.TASK_DELETE_ANY,
-    perms.ATTACHMENT_DELETE_ANY, perms.PROGRESS_MANAGE}
+    perms.ATTACHMENT_DELETE_ANY, perms.PROGRESS_MANAGE, perms.TASK_RESTORE, perms.RECYCLE_BIN_VIEW}
 
 
 def user(permissions, user_id=1, role="MEMBER"):
@@ -53,7 +53,7 @@ def _seed_text():
 def test_constants_match_the_seeded_catalogue():
     block = _seed_text().split("-- ----")[1]          # the permissions MERGE
     codes = set(re.findall(r"SELECT '([A-Z_]+)'(?: AS permission_code)?,", block))
-    assert codes == set(perms.ALL_PERMISSIONS) and len(codes) == 23
+    assert codes == set(perms.ALL_PERMISSIONS) and len(codes) == 25
 
 
 def test_expected_role_sets_match_the_seeded_grants():
@@ -63,7 +63,7 @@ def test_expected_role_sets_match_the_seeded_grants():
     for role, code in grants:
         by_role.setdefault(role, set()).add(code)
     assert by_role == {"ADMIN": ADMIN_PERMS, "MANAGER": MANAGER_PERMS, "MEMBER": MEMBER_PERMS}
-    assert [len(by_role[r]) for r in ("ADMIN", "MANAGER", "MEMBER")] == [23, 19, 10]
+    assert [len(by_role[r]) for r in ("ADMIN", "MANAGER", "MEMBER")] == [25, 21, 10]
 
 
 # ------------------------------------------------------------------ has_permission
@@ -154,13 +154,36 @@ def test_project_membership_and_visibility_follow_view_all():
     assert is_project_member(FakeDb(False), user(ADMIN_PERMS), 7)
     assert not is_project_member(FakeDb(False), user(MEMBER_PERMS), 7)
     assert is_project_member(FakeDb(True), user(MEMBER_PERMS), 7)
-    assert task_visibility_clause(user(ADMIN_PERMS)) == ("1 = 1", {})
+    assert task_visibility_clause(user(ADMIN_PERMS)) == ("(t.is_deleted = 'N')", {})
     assert project_visibility_clause(user(ADMIN_PERMS)) == ("1 = 1", {})
     clause, binds = task_visibility_clause(user(MANAGER_PERMS, user_id=9), "t")
     assert "project_members" in clause and binds == {"vis_user_id": 9}
+    assert "t.is_deleted = 'N'" in clause           # a soft-deleted task is never visible here
 
 
 def test_role_name_alone_no_longer_bypasses_visibility():
     # A user dict that says ADMIN but carries no permissions gets the member-scoped clause.
     clause, binds = task_visibility_clause({"user_id": 3, "role": "ADMIN"}, "t")
     assert "project_members" in clause and binds == {"vis_user_id": 3}
+
+
+# ------------------------------------------------------------------ soft delete / Recycle Bin
+
+def test_member_never_holds_a_recycle_bin_permission():
+    assert perms.TASK_RESTORE not in MEMBER_PERMS and perms.RECYCLE_BIN_VIEW not in MEMBER_PERMS
+    assert perms.TASK_RESTORE in MANAGER_PERMS and perms.RECYCLE_BIN_VIEW in MANAGER_PERMS
+
+
+def test_recycle_bin_clause_scope():
+    from app.common.access import recycle_bin_clause
+    assert recycle_bin_clause(user(ADMIN_PERMS)) == ("(t.is_deleted = 'Y')", {})
+    clause, binds = recycle_bin_clause(user(MANAGER_PERMS, user_id=9), "t")
+    assert "t.is_deleted = 'Y'" in clause and "project_members" in clause
+    assert binds == {"bin_user_id": 9}
+
+
+def test_member_is_not_a_manager_for_restore():
+    assert not is_project_manager(FakeDb(True), user(MEMBER_PERMS), 7, perms.TASK_RESTORE)
+    assert is_project_manager(FakeDb(True), user(MANAGER_PERMS), 7, perms.TASK_RESTORE)
+    assert not is_project_manager(FakeDb(False), user(MANAGER_PERMS), 7, perms.TASK_RESTORE)
+    assert is_project_manager(FakeDb(False), user(ADMIN_PERMS), 7, perms.TASK_RESTORE)

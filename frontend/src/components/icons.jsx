@@ -13,6 +13,7 @@ export const MyTasksIcon   = () => icon(<><circle cx="12" cy="8" r="3.2" /><path
 export const TeamIcon      = () => icon(<><circle cx="9" cy="8" r="3.2" /><path d="M3 20a6 6 0 0 1 12 0" /><path d="M16 5.2a3.2 3.2 0 0 1 0 5.6M18 14.4A6 6 0 0 1 21 20" /></>);
 export const SearchIcon    = () => icon(<><circle cx="11" cy="11" r="7" /><path d="m20 20-3.5-3.5" /></>);
 export const BellIcon      = () => icon(<><path d="M6 8a6 6 0 1 1 12 0c0 7 3 8 3 8H3s3-1 3-8" /><path d="M10.3 20a2 2 0 0 0 3.4 0" /></>);
+export const TrashIcon     = () => icon(<><path d="M4 7h16" /><path d="M9 7V4h6v3" /><path d="M6 7l1 13h10l1-13" /><path d="M10 11v6M14 11v6" /></>);
 export const MenuIcon      = () => icon(<path d="M4 6h16M4 12h16M4 18h16" />);
 export const CloseIcon     = () => icon(<path d="M6 6l12 12M18 6 6 18" />);
 export const CheckCircleIcon = () => icon(<><circle cx="12" cy="12" r="9" /><path d="m8.5 12.5 2.5 2.5 4.5-5" /></>);

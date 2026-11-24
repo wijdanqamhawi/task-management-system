@@ -11,14 +11,14 @@ import { PRIORITIES, PRIORITY_LABELS, PROJECT_STATUSES, PROJECT_STATUS_LABELS } 
 import { canAssign } from '../utils/permissions.js';
 import { errorMessage } from '../utils/format.js';
 
-export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', busy, onConfirm, onCancel }) {
+export function ConfirmDialog({ title, message, confirmLabel = 'Confirm', confirmColor = 'error', busy, onConfirm, onCancel }) {
   return (
     <Dialog open onClose={busy ? undefined : onCancel}>
       <DialogTitle>{title}</DialogTitle>
       <DialogContent><DialogContentText>{message}</DialogContentText></DialogContent>
       <DialogActions>
         <Button onClick={onCancel} disabled={busy}>Cancel</Button>
-        <Button color="error" variant="contained" onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
+        <Button color={confirmColor} variant="contained" onClick={onConfirm} disabled={busy}>{confirmLabel}</Button>
       </DialogActions>
     </Dialog>
   );

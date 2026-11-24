@@ -79,12 +79,22 @@ export function canChangeStatus(user, task, managedProjectIds) {
   return isManagerOf(user, task.projectId, managedProjectIds, P.TASK_EDIT);
 }
 
-/** Delete: a manager of the project, or the creator of the task. */
+/**
+ * Delete (a SOFT delete: the task moves to the Recycle Bin): a manager of the project only,
+ * ADMIN everywhere. A MEMBER never deletes, not even a task they created, so TASK_DELETE_OWN is
+ * deliberately not consulted.
+ */
 export function canDeleteTask(user, task, managedProjectIds) {
   if (!user || !task) return false;
-  if (isManagerOf(user, task.projectId, managedProjectIds, P.TASK_DELETE_ANY)) return true;
-  return hasPermission(user, P.TASK_DELETE_OWN) && user.userId != null && task.createdBy === user.userId;
+  return isManagerOf(user, task.projectId, managedProjectIds, P.TASK_DELETE_ANY);
 }
+
+// ------------------------------------------------------------------ Recycle Bin
+
+/** The Recycle Bin screen and its navigation item. MEMBER never holds this permission. */
+export const canViewRecycleBin = (user) => hasPermission(user, P.RECYCLE_BIN_VIEW);
+/** Restore a deleted task: the listed tasks are already limited to the caller's scope by the API. */
+export const canRestoreTask = (user) => hasPermission(user, P.TASK_RESTORE);
 
 // ------------------------------------------------------------------ attachment actions
 

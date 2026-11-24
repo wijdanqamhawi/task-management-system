@@ -218,15 +218,17 @@ def test_paging_and_sorting(world):
     assert world["manager"].get("/api/tasks", params={"size": 101}).status_code == 400
 
 
-def test_delete_permissions_and_cascade(world, dbc):
+def test_soft_delete_permissions_and_children_are_preserved(world, dbc):
     mgr, member = world["manager"], world["member"]
     by_manager = make_task(mgr, world["pid"])["taskId"]
     by_member = make_task(member, world["pid"])["taskId"]
     mgr.post(f"/api/tasks/{by_member}/subtasks", json={"title": "ZZTEST s", "startAt": "2026-01-01T09:00", "endAt": "2026-01-01T23:59"})
     mgr.post(f"/api/tasks/{by_member}/comments", json={"body": "ZZTEST c"})
-    assert member.delete(f"/api/tasks/{by_manager}").status_code == 403    # not creator, not manager
-    assert member.delete(f"/api/tasks/{by_member}").status_code == 204    # creator
-    assert mgr.delete(f"/api/tasks/{by_manager}").status_code == 204
-    assert mgr.get(f"/api/tasks/{by_member}").status_code == 404
-    for table in ("subtasks", "comments", "attachments", "task_assignees", "notifications"):
-        assert dbc.scalar(f"SELECT COUNT(*) FROM {table} WHERE task_id = :t", {"t": by_member}) == 0
+    assert member.delete(f"/api/tasks/{by_manager}").status_code == 403    # not a manager
+    assert member.delete(f"/api/tasks/{by_member}").status_code == 403    # even the creator
+    assert mgr.delete(f"/api/tasks/{by_member}").status_code == 204       # soft delete
+    assert mgr.get(f"/api/tasks/{by_member}").status_code == 404          # direct access: 404
+    assert dbc.scalar("SELECT COUNT(*) FROM tasks WHERE task_id = :t AND is_deleted = 'Y'",
+                      {"t": by_member}) == 1                              # the row is kept
+    for table in ("subtasks", "comments"):                                # children are preserved
+        assert dbc.scalar(f"SELECT COUNT(*) FROM {table} WHERE task_id = :t", {"t": by_member}) == 1

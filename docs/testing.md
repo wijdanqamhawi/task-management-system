@@ -151,3 +151,21 @@ idempotency, eligible assignees, deactivated users and unread counts, and pin th
 semantics ("Option K") documented in the same README. The older whole-schema test in
 `tests/test_dashboard_notifications.py` is skipped unless the application itself is configured
 as `TMS_TEST`.
+
+
+## Soft delete and Recycle Bin (migration 005)
+
+Database-dependent tests for this feature run **only against TMS_TEST** (the `tests/rbac` and
+`tests/scheduler` harnesses refuse any other schema and check `SESSION_USER` before every test).
+Apply migration 005 to TMS_TEST first: see `database/test/README.md`, "Upgrading an existing
+TMS_TEST".
+
+| Suite | Covers |
+|-------|--------|
+| `tests/rbac/test_recycle_bin.py` | Member cannot delete (even own task), view or restore; Manager and Admin scope; soft delete keeps the row, Progress, comments, attachments, assignments and notifications; a deleted task is 404 on every route and absent from lists, search, My Tasks, Shared with me, notifications and dashboard figures; restore with ineligible assignees; double delete and restore; project delete blocked while the bin holds tasks; member removal keeps a deleted task's assignments; concurrent delete, restore, assign and member removal |
+| `tests/scheduler/test_scheduled_notifications.py` | a soft-deleted task raises no DEADLINE or OVERDUE reminder, and does again once restored |
+| `tests/test_permissions_unit.py` | no database: permission catalogue (25 codes; ADMIN 25, MANAGER 21, MEMBER 10), visibility and Recycle Bin SQL clauses |
+| `frontend/src/utils/permissions.test.js` | `node --test`: delete is manager-only, Recycle Bin gates and navigation |
+
+`tests/test_tasks.py` and `tests/test_task_detail.py` (the TMS_USER suite) were updated to the
+soft-delete behaviour but were not run.

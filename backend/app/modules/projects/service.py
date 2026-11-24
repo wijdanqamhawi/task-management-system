@@ -1,7 +1,7 @@
 """Projects and membership (FR-009..FR-015, FR-008b, FR-044)."""
 from datetime import date
 
-from app.common.access import (project_visibility_clause, require_project_manager,
+from app.common.access import (lock_project, project_visibility_clause, require_project_manager,
                                require_project_visible)
 from app.common.paging import PageParams, page_response
 from app.common.permissions import PROJECT_DELETE, PROJECT_MEMBER_MANAGE, PROJECT_UPDATE
@@ -102,6 +102,15 @@ def update_project(db: Db, user: dict, project_id: int, *, name: str, descriptio
 
 def delete_project(db: Db, user: dict, project_id: int) -> None:
     require_project_manager(db, user, project_id, PROJECT_DELETE)
+    # Serialise with soft delete / restore of this project's tasks, then look again: a task
+    # deleted a moment ago must block the project delete just like one deleted long ago.
+    lock_project(db, project_id)
+    in_bin = db.scalar("SELECT COUNT(*) FROM tasks WHERE project_id = :p AND is_deleted = 'Y'",
+                       {"p": project_id})
+    if in_bin:
+        raise conflict(
+            f"This project has {in_bin} task(s) in the Recycle Bin. Restore them before deleting "
+            "the project: deleting it would permanently destroy them.")
     files = [r["stored_name"] for r in db.query(
         "SELECT a.stored_name FROM attachments a JOIN tasks t ON t.task_id = a.task_id "
         "WHERE t.project_id = :p", {"p": project_id})]
@@ -173,6 +182,9 @@ def remove_member(db: Db, user: dict, project_id: int, member_id: int,
     the leaving ADMIN holds it, it moves to the replacement in the SAME transaction as the removal.
     Any failure rolls the whole thing back. MANAGER and MEMBER can never remove themselves."""
     require_project_manager(db, user, project_id, PROJECT_MEMBER_MANAGE)
+    # One writer per project at a time: assign, restore, soft delete and member removal cannot
+    # interleave, so no task is left assigned to a user who was just removed.
+    lock_project(db, project_id)
     if not db.scalar("SELECT COUNT(*) FROM project_members WHERE project_id = :p AND user_id = :u",
                      {"p": project_id, "u": member_id}):
         raise not_found("User is not a member of this project")
@@ -197,12 +209,17 @@ def remove_member(db: Db, user: dict, project_id: int, member_id: int,
                 {"r": replacement_id, "p": project_id, "u": member_id}) > 0
         unassigned = db.query(
             """SELECT t.task_id, t.title FROM task_assignees ta JOIN tasks t ON t.task_id = ta.task_id
-                WHERE t.project_id = :p AND ta.user_id = :u ORDER BY t.task_id""",
+                WHERE t.project_id = :p AND ta.user_id = :u AND t.is_deleted = 'N'
+                ORDER BY t.task_id""",
             {"p": project_id, "u": member_id})
+        # Soft-deleted tasks keep their assignments (they are preserved for a restore). A user
+        # removed from the project here is dropped from such a task, with a report, when it is
+        # restored (recycle_bin.service.restore_task).
         db.execute(
             """DELETE FROM task_assignees
                 WHERE user_id = :u
-                  AND task_id IN (SELECT t.task_id FROM tasks t WHERE t.project_id = :p)""",
+                  AND task_id IN (SELECT t.task_id FROM tasks t
+                                   WHERE t.project_id = :p AND t.is_deleted = 'N')""",
             {"u": member_id, "p": project_id})
         db.execute("DELETE FROM project_members WHERE project_id = :p AND user_id = :u",
                    {"p": project_id, "u": member_id})

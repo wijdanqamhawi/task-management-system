@@ -6,7 +6,7 @@
  * Controls follow the permissions but the API is the authority: edit (TASK_EDIT) and assignment
  * (TASK_ASSIGN) need manager scope of the project (FR-008b; a Member never edits details,
  * FR-008c); status by an assignee, a manager of the project or PROJECT_MANAGE_ALL; delete by
- * a manager of the project (TASK_DELETE_ANY) or the creator (TASK_DELETE_OWN).
+ * a manager of the project (TASK_DELETE_ANY) only: it is a soft delete into the Recycle Bin.
  */
 import { useState } from 'react';
 import AppLayout from '../components/AppLayout.jsx';
@@ -19,6 +19,7 @@ import { useRouter } from '../router/Router.jsx';
 import { useApi } from '../hooks/useApi.js';
 import { useVisibleProjects } from '../hooks/useVisibleProjects.js';
 import { useSession } from '../auth/SessionContext.jsx';
+import { useToast } from '../components/Toast.jsx';
 import {
   assignUsers, changeStatus, deleteTask, getTask, unassignUser, updateTask,
 } from '../api/tasks.js';
@@ -78,6 +79,7 @@ export default function Task({ id }) {
   const taskId = Number(id);
   const { user } = useSession();
   const { navigate } = useRouter();
+  const toast = useToast();
   const visible = useVisibleProjects();
   const state = useApi((signal) => getTask(taskId, { signal }), [taskId]);
   const [editing, setEditing] = useState(false);
@@ -96,8 +98,15 @@ export default function Task({ id }) {
 
   async function remove(task) {
     setBusy(true);
-    try { await deleteTask(taskId); navigate(`/projects/${task.projectId}`); }
-    catch (e) { setError(errorMessage(e)); setConfirmDelete(false); setBusy(false); }
+    try {
+      await deleteTask(taskId);                 // soft delete: the task moves to the Recycle Bin
+      toast.success(`"${task.title}" was moved to the Recycle Bin.`);
+      navigate(`/projects/${task.projectId}`);
+    } catch (e) {
+      toast.error(errorMessage(e));
+      setConfirmDelete(false);
+      setBusy(false);
+    }
   }
 
   return (
@@ -163,8 +172,8 @@ export default function Task({ id }) {
                   onSubmit={async (body) => { await updateTask(taskId, body); setEditing(false); setNotice('Task updated.'); state.reload(); }} />
               )}
               {confirmDelete && (
-                <ConfirmDialog title="Delete task" danger confirmLabel="Delete task" busy={busy}
-                  message={`Delete "${t.title}" with its progress items, comments and attachments? This cannot be undone.`}
+                <ConfirmDialog title="Delete task" danger confirmLabel="Move to Recycle Bin" busy={busy}
+                  message={`Move "${t.title}" to the Recycle Bin? Its progress items, comments, attachments and assignments are kept, and a manager can restore it later.`}
                   onCancel={() => setConfirmDelete(false)} onConfirm={() => remove(t)} />
               )}
             </>

@@ -3,7 +3,8 @@
 -- Only the two date-driven triggers live here. Both are idempotent: the NOT EXISTS guard and
 -- the unique index uq_notifications_scheduled mean a repeated run creates nothing new, so a
 -- task that stays overdue for days notifies each assignee exactly once.
--- Skips COMPLETED tasks and inactive recipients (FR-061). Defines package code only.
+-- Skips COMPLETED tasks, soft-deleted tasks (is_deleted = 'Y', migration 005) and inactive
+-- recipients (FR-061). Defines package code only.
 
 CREATE OR REPLACE PACKAGE BODY pkg_notification AS
 
@@ -20,7 +21,8 @@ CREATE OR REPLACE PACKAGE BODY pkg_notification AS
       JOIN task_status s     ON s.status_id = t.status_id
       JOIN task_assignees ta ON ta.task_id  = t.task_id
       JOIN users u           ON u.user_id   = ta.user_id AND u.is_active = 'Y'
-     WHERE s.status_code <> 'COMPLETED'
+     WHERE t.is_deleted = 'N'
+       AND s.status_code <> 'COMPLETED'
        AND t.due_date IS NOT NULL
        AND t.due_date >= TRUNC(SYSDATE)
        AND SYSDATE >= t.due_date - (NVL(p_warning_hours, 24) / 24)
@@ -42,7 +44,8 @@ CREATE OR REPLACE PACKAGE BODY pkg_notification AS
       JOIN task_status s     ON s.status_id = t.status_id
       JOIN task_assignees ta ON ta.task_id  = t.task_id
       JOIN users u           ON u.user_id   = ta.user_id AND u.is_active = 'Y'
-     WHERE s.status_code <> 'COMPLETED'
+     WHERE t.is_deleted = 'N'
+       AND s.status_code <> 'COMPLETED'
        AND t.due_date IS NOT NULL
        AND t.due_date < TRUNC(SYSDATE)
        AND NOT EXISTS (SELECT 1 FROM notifications n

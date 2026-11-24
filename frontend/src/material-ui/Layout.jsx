@@ -14,12 +14,13 @@ import PeopleIcon from '@mui/icons-material/PeopleAltOutlined';
 import PersonIcon from '@mui/icons-material/PersonOutlined';
 import LogoutIcon from '@mui/icons-material/Logout';
 import ChecklistIcon from '@mui/icons-material/Checklist';
+import RecycleBinIcon from '@mui/icons-material/DeleteOutlined';
 import { useSession } from '../auth/SessionContext.jsx';
 import { useUnread } from '../notifications/UnreadContext.jsx';
 import { useRouter } from '../router/Router.jsx';
 import { ROUTES } from '../router/routes.js';
 import { ROLE_LABELS } from '../constants.js';
-import { canAdministerUsers } from '../utils/permissions.js';
+import { canAdministerUsers, canViewRecycleBin } from '../utils/permissions.js';
 import { initials } from '../utils/format.js';
 
 const DRAWER_WIDTH = 248;
@@ -30,6 +31,7 @@ const NAV = [
   { to: ROUTES.TASKS, label: 'Tasks', icon: <TaskIcon /> },
   { to: ROUTES.MY_TASKS, label: 'My Tasks', icon: <AssignmentIcon /> },
   { to: ROUTES.NOTIFICATIONS, label: 'Notifications', icon: <NotificationsIcon />, badge: true },
+  { to: ROUTES.RECYCLE_BIN, label: 'Recycle Bin', icon: <RecycleBinIcon />, needsRecycleBin: true },
   { to: ROUTES.USERS, label: 'Users', icon: <PeopleIcon />, needsUserAdmin: true },
   { to: ROUTES.PROFILE, label: 'Profile', icon: <PersonIcon /> },
 ];
@@ -45,7 +47,8 @@ export default function Layout({ children }) {
   // Detail pages highlight their parent section.
   const isActive = (to) => pathname === to || pathname.startsWith(`${to}/`);
   // Same rule as the Users route: either user-administration permission.
-  const items = NAV.filter((item) => !item.needsUserAdmin || canAdministerUsers(user));
+  const items = NAV.filter((item) => (!item.needsUserAdmin || canAdministerUsers(user))
+    && (!item.needsRecycleBin || canViewRecycleBin(user)));
 
   const go = (to) => {
     setOpen(false);

@@ -3,6 +3,9 @@
 -- Implements the specification in pkg_dashboard.pks. Visibility (R-004) is applied INSIDE every
 -- query: a user sees a project/task if they are a member of the project or hold ADMIN.
 -- "Overdue" = due_date earlier than today and status not COMPLETED. "Pending" = not COMPLETED.
+-- Soft-deleted tasks (tasks.is_deleted = 'Y', migration 005) are excluded from every figure. In the
+-- two project-progress queries the filter sits in the LEFT JOIN's ON clause so a project whose
+-- tasks are all deleted still appears, with zero tasks.
 -- This file only defines package code; it does not touch any table or the schema.
 
 CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
@@ -33,10 +36,11 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
       INTO p_total_tasks, p_completed_tasks, p_pending_tasks, p_overdue_tasks
       FROM tasks t
       JOIN task_status s ON s.status_id = t.status_id
-     WHERE EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
-                    WHERE u.user_id = p_user_id AND r.role_name = 'ADMIN')
-        OR EXISTS (SELECT 1 FROM project_members pm
-                    WHERE pm.project_id = t.project_id AND pm.user_id = p_user_id);
+     WHERE t.is_deleted = 'N'
+       AND (EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
+                     WHERE u.user_id = p_user_id AND r.role_name = 'ADMIN')
+            OR EXISTS (SELECT 1 FROM project_members pm
+                        WHERE pm.project_id = t.project_id AND pm.user_id = p_user_id));
   END get_totals;
 
   FUNCTION tasks_by_status (p_user_id IN NUMBER) RETURN SYS_REFCURSOR IS
@@ -47,6 +51,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
         FROM task_status s
         LEFT JOIN tasks t
           ON t.status_id = s.status_id
+         AND t.is_deleted = 'N'
          AND (EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
                        WHERE u.user_id = p_user_id AND r.role_name = 'ADMIN')
               OR EXISTS (SELECT 1 FROM project_members pm
@@ -64,6 +69,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
         FROM task_priority pr
         LEFT JOIN tasks t
           ON t.priority_id = pr.priority_id
+         AND t.is_deleted = 'N'
          AND (EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
                        WHERE u.user_id = p_user_id AND r.role_name = 'ADMIN')
               OR EXISTS (SELECT 1 FROM project_members pm
@@ -81,10 +87,11 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
         FROM task_assignees ta
         JOIN tasks t ON t.task_id = ta.task_id
         JOIN users u ON u.user_id = ta.user_id
-       WHERE EXISTS (SELECT 1 FROM users a JOIN roles r ON r.role_id = a.role_id
-                      WHERE a.user_id = p_user_id AND r.role_name = 'ADMIN')
-          OR EXISTS (SELECT 1 FROM project_members pm
-                      WHERE pm.project_id = t.project_id AND pm.user_id = p_user_id)
+       WHERE t.is_deleted = 'N'
+         AND (EXISTS (SELECT 1 FROM users a JOIN roles r ON r.role_id = a.role_id
+                       WHERE a.user_id = p_user_id AND r.role_name = 'ADMIN')
+              OR EXISTS (SELECT 1 FROM project_members pm
+                          WHERE pm.project_id = t.project_id AND pm.user_id = p_user_id))
        GROUP BY u.user_id, u.full_name
        ORDER BY task_count DESC, u.full_name;
     RETURN c;
@@ -101,7 +108,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
                   ELSE ROUND(100 * SUM(CASE WHEN s.status_code = 'COMPLETED' THEN 1 ELSE 0 END)
                              / COUNT(t.task_id)) END AS percent_complete
         FROM projects p
-        LEFT JOIN tasks t       ON t.project_id = p.project_id
+        LEFT JOIN tasks t       ON t.project_id = p.project_id AND t.is_deleted = 'N'
         LEFT JOIN task_status s ON s.status_id  = t.status_id
        WHERE EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
                       WHERE u.user_id = p_user_id AND r.role_name = 'ADMIN')
@@ -124,7 +131,7 @@ CREATE OR REPLACE PACKAGE BODY pkg_dashboard AS
                   ELSE ROUND(100 * SUM(CASE WHEN s.status_code = 'COMPLETED' THEN 1 ELSE 0 END)
                              / COUNT(t.task_id)) END AS percent_complete
         FROM projects p
-        LEFT JOIN tasks t       ON t.project_id = p.project_id
+        LEFT JOIN tasks t       ON t.project_id = p.project_id AND t.is_deleted = 'N'
         LEFT JOIN task_status s ON s.status_id  = t.status_id
        WHERE p.project_id = p_project_id
          AND (EXISTS (SELECT 1 FROM users u JOIN roles r ON r.role_id = u.role_id
